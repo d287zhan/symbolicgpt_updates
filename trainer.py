@@ -13,6 +13,7 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data.dataloader import DataLoader
+from utils import * 
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,13 @@ class Trainer:
 
                 # forward the model
                 with torch.set_grad_enabled(is_train):
-                    logits, loss = model(x, y, p, v, tokenizer=self.train_dataset.itos)
+                    #print(self.train_dataset)
+                    # print("y data")
+                    # print(y)
+                    train_dict = {'X': x, 'Y':y}
+                    logits, loss = model(x, y, p, v, tokenizer=self.train_dataset.itos, train_dict = train_dict)
+                    # print(it)
+                    # print(logits.shape)
                     loss = loss.mean() # collapse all losses if they are scattered on multiple gpus
                     losses.append(loss.item())
 
