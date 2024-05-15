@@ -97,7 +97,8 @@ def sample_from_model(model, x, steps, points=None, variables=None, temperature=
     model.eval()
     for k in range(steps):
         x_cond = x if x.size(1) <= block_size else x[:, -block_size:] # crop context if needed
-        logits, _ = model(x_cond, points=points, variables=variables)
+        logits, _ = model(x_cond.to('cuda'), points=points.to('cuda'), 
+                          variables=variables.to('cuda'))
         # pluck the logits at the final step and scale by temperature
         logits = logits[0, -1, :] / temperature
         # optionally crop probabilities to only the top k options
@@ -112,8 +113,12 @@ def sample_from_model(model, x, steps, points=None, variables=None, temperature=
         else:
             _, ix = torch.topk(probs, k=1, dim=-1)
         # append to the sequence and continue
-        x = torch.cat((x, ix.unsqueeze(0)), dim=1)
 
+        if ix.unsqueeze(0).shape[0] == x.shape[0]:
+            x = torch.cat((x.to('cuda'), ix.unsqueeze(0)), dim=1)
+        else:
+            ix2 = ix.unsqueeze(0).expand(128, -1)
+            x = torch.cat((x.to('cuda'), ix2), dim=1)
     return x
 
 def plot_and_save_results(resultDict, fName, pconf, titleTemplate, textTest, modelKey='SymbolicGPT'):
@@ -179,18 +184,27 @@ def plot_and_save_results(resultDict, fName, pconf, titleTemplate, textTest, mod
 def tokenize_predict_and_evaluate(i, inputs, points, outputs, variables, 
                                   train_dataset, textTest, trainer, model, resultDict,
                                   numTests, variableEmbedding, blockSize, fName,
-                                  modelKey='SymbolicGPT', device='cpu'):
+                                 modelKey='SymbolicGPT', device='cpu', tokenizer_itos = None):
     
-    eq = ''.join([train_dataset.itos[int(i)] for i in outputs[0]])
-    eq = eq.strip(train_dataset.paddingToken).split('>')
+    
+
+    if tokenizer_itos is not None:
+        eq = ''.join([tokenizer_itos[int(i)] for i in outputs[0]])
+        eq = eq.strip('_').split('>')
+        t = textTest
+    else: 
+        eq = ''.join([train_dataset.itos[int(i)] for i in outputs[0]])
+        eq = eq.strip(train_dataset.paddingToken).split('>')
+        t = json.loads(textTest[i])
+
     eq = eq[0] #if len(eq[0])>=1 else eq[1]
     eq = eq.strip('<').strip(">")
-    print(eq)
+
     if variableEmbedding == 'STR_VAR':
             eq = eq.split(':')[-1]
 
-    t = json.loads(textTest[i])
-
+    
+    
     inputs = inputs[:,0:1].to(device)
     points = points.to(device)
     # points = points[:,:numPoints] # filter anything more than maximum number of points
@@ -204,7 +218,6 @@ def tokenize_predict_and_evaluate(i, inputs, points, outputs, variables,
                             model, t, eq, inputs, 
                             blockSize, points, variables, 
                             train_dataset, variableEmbedding)
-
         if err < bestErr:
             bestErr = err
             bestPredicted = predicted
@@ -232,12 +245,30 @@ def generate_sample_and_evaluate(model, t, eq, inputs,
                         )[0]
 
     # filter out predicted
-    predicted = ''.join([train_dataset.itos[int(i)] for i in outputsHat])
+    tokenizer_dict = {0: '\n', 1: ' ', 
+                     2: '"', 3: '(', 4: ')', 
+                     5: '*', 6: '+', 7: ',', 
+                     8: '-', 9: '.', 10: '/', 
+                     11: '0', 12: '1', 13: '2', 14: '3', 15: '4', 16: '5', 
+                     17: '6', 18: '7', 19: '8', 20: '9', 21: ':', 22: ':', 23: '<',
+                       24: '>', 25: 'C', 26: 'E', 27: 'Q', 28: 'S', 29: 'T', 30: 'X', 
+                       31: 'Y', 32: '[', 33: ']', 34: '_', 35: 'c', 36: 'e', 37: 'g', 
+                       38: 'i', 39: 'k', 40: 'l', 41: 'n', 42: 'o', 43: 'p', 44: 's', 
+                       45: 't', 46: 'x', 47: '{', 48: '}'}
+
+    if train_dataset is not None:
+        predicted = ''.join([train_dataset.itos[int(i)] for i in outputsHat])
+    else:
+        predicted = ''.join([tokenizer_dict[int(i)] for i in outputsHat]) 
 
     if variableEmbedding == 'STR_VAR':
         predicted = predicted.split(':')[-1]
 
-    predicted = predicted.strip(train_dataset.paddingToken).split('>')
+    if train_dataset is not None:
+        predicted = predicted.strip(train_dataset.paddingToken).split('>')
+    else:
+        predicted = predicted.strip('_').split('>')
+
     predicted = predicted[0] #if len(predicted[0])>=1 else predicted[1]
     predicted = predicted.strip('<').strip(">")
     predicted = predicted.replace('Ce','C*e')
@@ -261,42 +292,82 @@ def generate_sample_and_evaluate(model, t, eq, inputs,
     
     Ys = [] #t['YT']
     Yhats = []
-    for xs in t['XT']:
-        try:
-            eqTmp = eq + '' # copy eq
-            eqTmp = eqTmp.replace(' ','')
-            eqTmp = eqTmp.replace('\n','')
-            for i,x in enumerate(xs):
-                # replace xi with the value in the eq
-                eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
-                if ',' in eqTmp:
-                    assert 'There is a , in the equation!'
-            YEval = eval(eqTmp)
-            # YEval = 0 if np.isnan(YEval) else YEval
-            # YEval = 100 if np.isinf(YEval) else YEval
-        except:
-            print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
-            print(i)
-            raise
-            continue # if there is any point in the target equation that has any problem, ignore it
-            YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
-        Ys.append(YEval)
-        try:
-            eqTmp = predicted + '' # copy eq
-            eqTmp = eqTmp.replace(' ','')
-            eqTmp = eqTmp.replace('\n','')
-            for i,x in enumerate(xs):
-                # replace xi with the value in the eq
-                eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
-                if ',' in eqTmp:
-                    assert 'There is a , in the equation!'
-            Yhat = eval(eqTmp)
-            # Yhat = 0 if np.isnan(Yhat) else Yhat
-            # Yhat = 100 if np.isinf(Yhat) else Yhat
-        except:
-            print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
-            Yhat = 100
-        Yhats.append(Yhat)
+    
+    if 'XT' not in list(t.keys()):
+        for xs in t['X']:
+            try:
+                eqTmp = eq + '' # copy eq
+                eqTmp = eqTmp.replace(' ','')
+                eqTmp = eqTmp.replace('\n','')
+                for i,x in enumerate(xs):
+                    # replace xi with the value in the eq
+                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x.item()))
+                    if ',' in eqTmp:
+                        assert 'There is a , in the equation!'
+
+                YEval = eval(eqTmp)
+                # YEval = 0 if np.isnan(YEval) else YEval
+                # YEval = 100 if np.isinf(YEval) else YEval
+            except:
+                print('TA: For some reason, we used the default value. Eq1:{}'.format(eqTmp))
+                print(i)
+                #raise
+                continue # if there is any point in the target equation that has any problem, ignore it
+                #YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+            Ys.append(YEval)
+            try:
+                eqTmp = predicted + '' # copy eq
+                eqTmp = eqTmp.replace(' ','')
+                eqTmp = eqTmp.replace('\n','')
+                for i,x in enumerate(xs):
+                    # replace xi with the value in the eq
+                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x.item()))
+                    if ',' in eqTmp:
+                        assert 'There is a , in the equation!'
+                Yhat = eval(eqTmp)
+                # Yhat = 0 if np.isnan(Yhat) else Yhat
+                # Yhat = 100 if np.isinf(Yhat) else Yhat
+            except:
+                print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                Yhat = 100
+            Yhats.append(Yhat)
+    else:
+        for xs in t['XT']:
+            try:
+                eqTmp = eq + '' # copy eq
+                eqTmp = eqTmp.replace(' ','')
+                eqTmp = eqTmp.replace('\n','')
+                for i,x in enumerate(xs):
+                    # replace xi with the value in the eq
+                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                    if ',' in eqTmp:
+                        assert 'There is a , in the equation!'
+                YEval = eval(eqTmp)
+                # YEval = 0 if np.isnan(YEval) else YEval
+                # YEval = 100 if np.isinf(YEval) else YEval
+            except:
+                print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                print(i)
+                raise
+                continue # if there is any point in the target equation that has any problem, ignore it
+                YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+            Ys.append(YEval)
+            try:
+                eqTmp = predicted + '' # copy eq
+                eqTmp = eqTmp.replace(' ','')
+                eqTmp = eqTmp.replace('\n','')
+                for i,x in enumerate(xs):
+                    # replace xi with the value in the eq
+                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                    if ',' in eqTmp:
+                        assert 'There is a , in the equation!'
+                Yhat = eval(eqTmp)
+                # Yhat = 0 if np.isnan(Yhat) else Yhat
+                # Yhat = 100 if np.isinf(Yhat) else Yhat
+            except:
+                print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                Yhat = 100
+            Yhats.append(Yhat)
     err = relativeErr(Ys,Yhats, info=True)
     
     print('\nTarget:{}'.format(eq))
