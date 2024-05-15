@@ -38,30 +38,26 @@ set_seed(42)
 # config
 device='gpu'
 scratch=True # if you want to ignore the cache and start for scratch
-numEpochs = 40 # number of epochs to train the GPT+PT model
+#numEpochs = 5 # number of epochs to train the GPT+PT model
+numEpochs = 3 # number of epochs to fine-tune
 embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
-numPoints = [20,250] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
-numVars = 9 # the dimenstion of input points x, if you don't know then use the maximum
-numYs = 1 # the dimension of output points y = f(x), if you don't know then use the maximum
-blockSize = 32 # spatial extent of the model for its context
-testBlockSize = 800
+numPoints=[30,31] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+numVars=1 # the dimenstion of input points x, if you don't know then use the maximum
+numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
+blockSize = 64 # spatial extent of the model for its context
+testBlockSize = 400
 batchSize = 128 # batch size of training data
 target = 'Skeleton' #'Skeleton' #'EQ'
 const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
 decimals = 8 # decimals of the points only if target is Skeleton
 trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
-dataDir = 'D:/Datasets/Symbolic Dataset/Datasets/FirstDataGenerator/'  #'./datasets/'
-dataFolder = '1-9Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_20-250'
-dataTestFolder = '1-9Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_20-250/Test_Benchmarks'
-dataInfo = 'XYE_{}Var_{}-{}Points_{}EmbeddingSize'.format(numVars, numPoints[0], numPoints[1], embeddingSize)
+dataDir = './datasets/'
+dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
 titleTemplate = "{} equations of {} variables - Benchmark"
+target = 'Skeleton' #'Skeleton' #'EQ'
+dataFolder = '1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points'
 addr = './SavedModels/' # where to save model
 method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
-# EMB_CAT: Concat point embedding to GPT token+pos embedding
-# EMB_SUM: Add point embedding to GPT tokens+pos embedding
-# OUT_CAT: Concat the output of the self-attention and point embedding
-# OUT_SUM: Add the output of the self-attention and point embedding
-# EMB_CON: Conditional Embedding, add the point embedding as the first token
 variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
 # NOT_VAR: Do nothing, will not pass any information from the number of variables in the equation to the GPT
 # LEA_EMB: Learnable embedding for the variables, added to the pointNET embedding
@@ -73,12 +69,14 @@ fName = '{}_SymbolicGPT_{}_{}_{}_MINIMIZE.txt'.format(dataInfo,
                                              'GPT_PT_{}_{}'.format(method, target), 
                                              'Padding',
                                              variableEmbedding)
-ckptPath = '{}/{}.pt'.format(addr,fName.split('.txt')[0])
+# ckptPath = '{}/{}.pt'.format(addr,fName.split('.txt')[0])
+ckptPath = 'weights\XYE_1Var_30-31Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt'
+
 try: 
     os.mkdir(addr)
 except:
     print('Folder already exists!')
-
+print(fName)
 # load the train dataset
 train_file = 'train_dataset_{}.pb'.format(fName)
 if os.path.isfile(train_file) and not scratch:
@@ -126,7 +124,7 @@ outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
 print('id:{}\ninputs:{}\noutputs:{}\npoints:{}\nvariables:{}'.format(idx,inputs,outputs,points, variables))
 
 # load the test data
-path = f'{dataDir}/{dataTestFolder}/*.json'
+path = f'{dataDir}/{dataFolder}/Test/*.json'
 print(f'test path is {path}')
 files = glob.glob(path)
 textTest = processDataFiles(files)
@@ -165,9 +163,9 @@ tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize,
 trainer = Trainer(model, train_dataset, val_dataset, tconf, bestLoss, device=device)
 
 # # load the best model before training
-# print('The following model {} has been loaded!'.format(ckptPath))
-# model.load_state_dict(torch.load(ckptPath))
-# model = model.eval().to(trainer.device)
+print('The following model {} has been loaded!'.format(ckptPath))
+model.load_state_dict(torch.load(ckptPath))
+model = model.eval().to(trainer.device)
 
 try:
     trainer.train()
@@ -175,18 +173,29 @@ except KeyboardInterrupt:
     print('KeyboardInterrupt')
 
 # load the best model
-print('The following model {} has been loaded!'.format(ckptPath))
-model.load_state_dict(torch.load(ckptPath))
-model = model.eval().to(trainer.device)
+# print('The following model {} has been loaded!'.format(ckptPath))
+# model.load_state_dict(torch.load(ckptPath))
+# model = model.eval().to(trainer.device)
 
 ## Test the model
-# alright, let's sample some character-level symbolic GPT 
+# alright, let's sample some character-level symbolic GPT
+
+#if not train_errors:
+    # test loader
 loader = torch.utils.data.DataLoader(
                                 test_dataset, 
                                 shuffle=False, 
                                 pin_memory=True,
                                 batch_size=1,
                                 num_workers=0)
+# else:
+#     # train loader
+#     loader = torch.utils.data.DataLoader(
+#                                     train_dataset, 
+#                                     shuffle=False, 
+#                                     pin_memory=True,
+#                                     batch_size=1,
+#                                     num_workers=0)
 
 from utils import *
 resultDict = {}
@@ -198,10 +207,21 @@ try:
                 
             inputs,outputs,points,variables = batch
 
+        
             print('Test Case {}.'.format(i))
             o.write('Test Case {}/{}.\n'.format(i,len(textTest)-1))
-
             t = json.loads(textTest[i])
+            # print(t)
+            # print(wow)
+            # else:
+            #     print('Train Case {}.'.format(i))
+            #     o.write('Train Case {}/{}.\n'.format(i,len(trainText)-1))
+            #     t = json.loads(trainText[i])
+                # print(t)
+                # print('break')
+                # t2 = json.loads(textTest[i])
+                # print(t2)
+                # print(wow)
 
             inputs = inputs[:,0:1].to(trainer.device)
             points = points.to(trainer.device)
@@ -261,6 +281,8 @@ try:
 
             Ys = [] #t['YT']
             Yhats = []
+
+
             for xs in t['XT']:
                 try:
                     eqTmp = target + '' # copy eq
