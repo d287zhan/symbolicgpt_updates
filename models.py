@@ -14,6 +14,7 @@ import random
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from utils import *
 
 logger = logging.getLogger(__name__)
 
@@ -341,8 +342,9 @@ class GPT(nn.Module):
         optimizer = torch.optim.AdamW(optim_groups, lr=train_config.learning_rate, betas=train_config.betas)
         return optimizer
 
-    def forward(self, idx, targets=None, points=None, variables=None, tokenizer=None):
+    def forward(self, idx, targets=None, points=None, variables=None, tokenizer=None, train_dict = None):
         b, t = idx.size()
+        # idx is target eqn 
         assert t <= self.block_size, "Cannot forward, model block size is exhausted."
 
         # forward the GPT model
@@ -391,6 +393,142 @@ class GPT(nn.Module):
             x = x[:,1:,:]
 
         logits = self.head(x) # b, length, vocab_size
+        # print("train_dict")
+        # print(train_dict)
+        
+        regularize = True
+        tokenizer_dict = {0: '\n', 1: ' ', 
+                     2: '"', 3: '(', 4: ')', 
+                     5: '*', 6: '+', 7: ',', 
+                     8: '-', 9: '.', 10: '/', 
+                     11: '0', 12: '1', 13: '2', 14: '3', 15: '4', 16: '5', 
+                     17: '6', 18: '7', 19: '8', 20: '9', 21: ':', 22: ':', 23: '<',
+                       24: '>', 25: 'C', 26: 'E', 27: 'Q', 28: 'S', 29: 'T', 30: 'X', 
+                       31: 'Y', 32: '[', 33: ']', 34: '_', 35: 'c', 36: 'e', 37: 'g', 
+                       38: 'i', 39: 'k', 40: 'l', 41: 'n', 42: 'o', 43: 'p', 44: 's', 
+                       45: 't', 46: 'x', 47: '{', 48: '}'}
+
+        if regularize:
+            # print("outputs")
+            # print(targets)
+            modelKey='SymbolicGPT'
+            fName = 'regularized'
+            results_dict = {fName : {modelKey: {'err' : [], 'trg':[], 'prd': []}}}
+
+            if targets is not None:
+                _, _, bestErr = tokenize_predict_and_evaluate(i = 0, 
+                                                            inputs = idx, 
+                                                            points = points, 
+                                                            outputs =targets, 
+                                                            variables = torch.tensor([1]).to(idx.device),
+                                                            train_dataset = None,
+                                                            textTest= train_dict , 
+                                                            trainer = None,  
+                                                            model = self,
+                                                            resultDict = results_dict,
+                                                                numTests = 1, 
+                                                                variableEmbedding = None, 
+                                                                blockSize = 128, 
+                                                            fName = fName , 
+                                                            tokenizer_itos = tokenizer_dict)
+            
+                print("BestErr")
+                print(bestErr)
+            else:
+                bestErr = 0
+
+        # # Iteratively 
+        # # If we do penalization we perform a sample of the logits
+        # if regularize:
+        # # Compute the sampling from the model given the logits 
+        #     logits2 = logits[0, -1, :] / 1.0
+        #     sample_from_logits = top_k_top_p_filtering(logits2, top_k = 0.0, top_p = 0.7)
+        #     probs_from_logits = F.softmax(sample_from_logits,  dim=-1)
+        #     if sample:
+        #         # sample from the distribution or take the most likely
+        #         ix = torch.multinomial(probs_from_logits, num_samples=1)
+
+        # most_likely_eqn = logits2[ix]
+        # print(most_likely_eqn)
+
+        # # filter out predicted
+        # target = ''.join([train_dataset.itos[int(i)] for i in outputs[0]])
+        # predicted = ''.join([train_dataset.itos[int(i)] for i in outputsHat])
+
+        # if variableEmbedding == 'STR_VAR':
+        #     target = target.split(':')[-1]
+        #     predicted = predicted.split(':')[-1]
+
+        # target = target.strip(train_dataset.paddingToken).split('>')
+        # target = target[0] #if len(target[0])>=1 else target[1]
+        # target = target.strip('<').strip(">")
+        # predicted = predicted.strip(train_dataset.paddingToken).split('>')
+        # predicted = predicted[0] #if len(predicted[0])>=1 else predicted[1]
+        # predicted = predicted.strip('<').strip(">")
+        
+        # # train a regressor to find the constants (too slow)
+        # c = [1.0 for i,x in enumerate(predicted) if x=='C'] # initialize coefficients as 1
+        # # c[-1] = 0 # initialize the constant as zero
+        # b = [(-2,2) for i,x in enumerate(predicted) if x=='C']  # bounds on variables
+        # try:
+        #     if len(c) != 0:
+        #         # This is the bottleneck in our algorithm
+        #         # for easier comparison, we are using minimize package  
+        #         cHat = minimize(lossFunc, c, #bounds=b,
+        #                         args=(predicted, t['X'], t['Y'])) 
+        
+        #         predicted = predicted.replace('C','{}').format(*cHat.x)
+        # except ValueError:
+        #     raise 'Err: Wrong Equation {}'.format(predicted)
+        # except Exception as e:
+        #     raise 'Err: Wrong Equation {}, Err: {}'.format(predicted, e)
+
+
+        # Ys = [] #t['YT']
+        # Yhats = []
+
+        # error_arr = np.array([])
+
+        # for xs in t['XT']:
+        #     try:
+        #         eqTmp = target + '' # copy eq
+        #         eqTmp = eqTmp.replace(' ','')
+        #         eqTmp = eqTmp.replace('\n','')
+        #         for i,x in enumerate(xs):
+        #             # replace xi with the value in the eq
+        #             eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+        #             if ',' in eqTmp:
+        #                 assert 'There is a , in the equation!'
+        #         YEval = eval(eqTmp)
+        #         # YEval = 0 if np.isnan(YEval) else YEval
+        #         # YEval = 100 if np.isinf(YEval) else YEval
+        #     except:
+        #         print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+        #         print(i)
+        #         raise
+        #         continue # if there is any point in the target equation that has any problem, ignore it
+        #         YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+        #     Ys.append(YEval)
+        #     try:
+        #         eqTmp = predicted + '' # copy eq
+        #         eqTmp = eqTmp.replace(' ','')
+        #         eqTmp = eqTmp.replace('\n','')
+        #         for i,x in enumerate(xs):
+        #             # replace xi with the value in the eq
+        #             eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+        #             if ',' in eqTmp:
+        #                 assert 'There is a , in the equation!'
+        #         Yhat = eval(eqTmp)
+        #         # Yhat = 0 if np.isnan(Yhat) else Yhat
+        #         # Yhat = 100 if np.isinf(Yhat) else Yhat
+        #     except:
+        #         print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+        #         Yhat = 100
+        #     Yhats.append(Yhat)
+        # err = relativeErr(Ys,Yhats, info=True)
+
+        # if type(err) is np.complex128 or np.complex:
+        #     err = abs(err.real)
 
         printCondition = random.random() < 0.001 and tokenizer is not None
         if printCondition:
@@ -412,7 +550,7 @@ class GPT(nn.Module):
                 print('Target:{}'.format(TargetChr)) 
 
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), 
-                                   ignore_index=self.config.padding_idx)
+                                   ignore_index=self.config.padding_idx) + bestErr
 
             #print('\nLogits Max:{}\ntargets:{}\n'.format(logits.max(-1)[1], targets))
             # eps = 1e-5
