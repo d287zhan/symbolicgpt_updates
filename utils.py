@@ -357,12 +357,29 @@ def relativeErr(y, yHat, info=False, eps=1e-5):
 
     return np.mean(err)
 
+# Compute residuals 
+def compute_residuals(y, yHat, info = False):
+    yHat = np.reshape(yHat, [1, -1])[0]
+    y = np.reshape(y, [1, -1])[0]
+
+    if len(y) > 0 and len(y)==len(yHat):
+        residuals = (y - yHat)
+    
+        if info:
+            for _ in range(5):
+                i = np.random.randint(len(y))
+                print('yPR,yTrue:{},{}, Res:{}'.format(yHat[i],y[i],residuals[i]))
+
+    # Return the entire residual vector to backfit with the next covariate
+    return residuals
+    
+
 class CharDataset(Dataset):
     def __init__(self, data, block_size, chars, 
                  numVars, numYs, numPoints, target='EQ', 
                  addVars=False, const_range=[-0.4, 0.4],
                  xRange=[-3.0,3.0], decimals=4, augment=False):
-
+        
         data_size, vocab_size = len(data), len(chars)
         print('data has %d examples, %d unique.' % (data_size, vocab_size))
         

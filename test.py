@@ -277,7 +277,7 @@ def parallel_wraper(process_name, tasks, results, arguments):
      train_dataset, textTest, trainer, model, 
      resultDict, numTests, variableEmbedding, 
      blockSize, fName, modelKey,device) = arguments
-
+    
     while True:
         new_value = tasks.get()
         if new_value < 0:
@@ -288,7 +288,7 @@ def parallel_wraper(process_name, tasks, results, arguments):
             break
         else:
             from utils import tokenize_predict_and_evaluate
-
+            
             eq, bestPredicted, bestErr = tokenize_predict_and_evaluate(
                 i, inputs, points, outputs, variables, 
                 train_dataset, textTest, trainer, model, 
