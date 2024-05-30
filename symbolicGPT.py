@@ -96,8 +96,9 @@ else:
     # In order of data x1,x2,.., xn, y for the shape of points
     if perform_gam:
         for i in range(numVars):
-            outpath = '{}/{}/Train/gam/{numVars}_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
-            create_gam_datasets(path, outpath, numVars)
+            print(f"Creating dataset for x_{i}")
+            outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
+            create_gam_datasets(path, outpath, i)
     else:
         files = glob.glob(path)[:maxNumFiles]
         text = processDataFiles(files)
@@ -112,74 +113,68 @@ else:
     #     pickle.dump([train_dataset,trainText,chars], f)
 
 
-# print a random sample
-idx = np.random.randint(train_dataset.__len__())
-#idx = 1
-inputs, outputs, points, variables = train_dataset.__getitem__(idx)
-print('inputs:{}'.format(inputs))
-inputs = ''.join([train_dataset.itos[int(i)] for i in inputs])
-outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
-print("Train")
-print('id:{}\ninputs:{}\noutputs:{}\npoints:{}\nvariables:{}'.format(idx,inputs,outputs,points, variables))
+        # print a random sample
+        idx = np.random.randint(train_dataset.__len__())
+        #idx = 1
+        inputs, outputs, points, variables = train_dataset.__getitem__(idx)
+        print('inputs:{}'.format(inputs))
+        inputs = ''.join([train_dataset.itos[int(i)] for i in inputs])
+        outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
+        print("Train")
+        print('id:{}\ninputs:{}\noutputs:{}\npoints:{}\nvariables:{}'.format(idx,inputs,outputs,points, variables))
 
 # load the val dataset
 path = '{}/{}/Val/*.json'.format(dataDir,dataFolder)
-files = glob.glob(path)
-textVal = processDataFiles([files[0]])
-textVal = textVal.split('\n') # convert the raw text to a set of examples
-val_dataset = CharDataset(textVal, blockSize, chars, numVars=numVars, 
-                numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
-                const_range=const_range, xRange=trainRange, decimals=decimals)
+if not perform_gam:
+    files = glob.glob(path)
+    textVal = processDataFiles([files[0]])
+    textVal = textVal.split('\n') # convert the raw text to a set of examples
+    val_dataset = CharDataset(textVal, blockSize, chars, numVars=numVars, 
+                    numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
+                    const_range=const_range, xRange=trainRange, decimals=decimals)
+    
+    # print a random sample
+    idx = np.random.randint(val_dataset.__len__())
+    inputs, outputs, points, variables = val_dataset.__getitem__(idx)
+    print(points.min(), points.max())
+    inputs = ''.join([train_dataset.itos[int(i)] for i in inputs])
+    outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
+    print("Val")
+    print('id:{}\ninputs:{}\noutputs:{}\npoints:{}\nvariables:{}'.format(idx,inputs,outputs,points, variables))
 
-# print a random sample
-idx = np.random.randint(val_dataset.__len__())
-inputs, outputs, points, variables = val_dataset.__getitem__(idx)
-print(points.min(), points.max())
-inputs = ''.join([train_dataset.itos[int(i)] for i in inputs])
-outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
-print("Val")
-print('id:{}\ninputs:{}\noutputs:{}\npoints:{}\nvariables:{}'.format(idx,inputs,outputs,points, variables))
+else:
+    for i in range(numVars):
+        print(f"Creating dataset for x_{i}")
+        outpath = '{}/{}/Val/gam/{}_vars_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
+        create_gam_datasets(path, outpath, i)
+
 
 # load the test data
 path = f'{dataDir}/{dataFolder}/Test/*.json'
 print(f'test path is {path}')
-files = glob.glob(path)
-textTest = processDataFiles(files)
-textTest = textTest.split('\n') # convert the raw text to a set of examples
-# test_dataset_target = CharDataset(textTest, blockSize, chars, target=target)
-test_dataset = CharDataset(textTest, testBlockSize, chars, numVars=numVars, 
-                numYs=numYs, numPoints=numPoints, addVars=addVars,
-                const_range=const_range, xRange=trainRange, decimals=decimals)
 
-# print a random sample
-idx = np.random.randint(test_dataset.__len__())
-inputs, outputs, points, variables = test_dataset.__getitem__(idx)
-print(points.min(), points.max())
-inputs = ''.join([train_dataset.itos[int(i)] for i in inputs])
-outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
-print("Test")
-print('id:{}\ninputs:{}\noutputs:{}\npoints:{}\nvariables:{}'.format(idx,inputs,outputs,points, variables))
+if not perform_gam:
+    files = glob.glob(path)
+    textTest = processDataFiles(files)
+    textTest = textTest.split('\n') # convert the raw text to a set of examples
+    # test_dataset_target = CharDataset(textTest, blockSize, chars, target=target)
+    test_dataset = CharDataset(textTest, testBlockSize, chars, numVars=numVars, 
+                    numYs=numYs, numPoints=numPoints, addVars=addVars,
+                    const_range=const_range, xRange=trainRange, decimals=decimals)
 
-# create the model
-pconf = PointNetConfig(embeddingSize=embeddingSize, 
-                       numberofPoints=numPoints[1]-1, 
-                       numberofVars=numVars, 
-                       numberofYs=numYs,
-                       method=method,
-                       variableEmbedding=variableEmbedding)
-mconf = GPTConfig(train_dataset.vocab_size, train_dataset.block_size,
-                  n_layer=8, n_head=8, n_embd=embeddingSize, 
-                  padding_idx=train_dataset.paddingID)
-model = GPT(mconf, pconf)
-
-
-# initialize a trainer instance and kick off training
-tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize, 
-                      learning_rate=6e-4,
-                      lr_decay=True, warmup_tokens=512*20, 
-                      final_tokens=2*len(train_dataset)*blockSize,
-                      num_workers=0, ckpt_path=ckptPath)
-#trainer = Trainer(model, train_dataset, val_dataset, tconf, bestLoss, device=device)
+    # print a random sample
+    idx = np.random.randint(test_dataset.__len__())
+    inputs, outputs, points, variables = test_dataset.__getitem__(idx)
+    print(points.min(), points.max())
+    inputs = ''.join([train_dataset.itos[int(i)] for i in inputs])
+    outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
+    print("Test")
+    print('id:{}\ninputs:{}\noutputs:{}\npoints:{}\nvariables:{}'.format(idx,inputs,outputs,points, variables))
+else:
+    for i in range(numVars):
+        print(f"Creating dataset for x_{i}")
+        outpath = '{}/{}/Test/gam/{}_vars_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
+        create_gam_datasets(path, outpath, i)
 
 # Create own training loop to get a better control over training dynamics
 
@@ -211,14 +206,15 @@ if perform_gam:
     # If not x_1 then update the next dataset with y = residuals[i-1]
     
         if i == 0:
-            train_files = glob.glob(train_gam_path)[i]
+            print(f"Reading from {train_gam_path}")
+            train_files = [glob.glob(train_gam_path)[i]]
             # Do similar thing with val and test
             train_data = gam_backfitting_preprocess(True, train_files, blockSize, numVars, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals)
             
         else:
-            train_files = glob.glob(train_gam_path)[i]
+            train_files = [glob.glob(train_gam_path)[i]]
             # update with residuals
             new_y = residuals[i-1]
             read_json_lines_and_update_y(train_files, new_y)
@@ -227,10 +223,32 @@ if perform_gam:
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals)
 
+        
+
+        pconf = PointNetConfig(embeddingSize=embeddingSize, 
+                       numberofPoints=numPoints[1]-1, 
+                       numberofVars=numVars, 
+                       numberofYs=numYs,
+                       method=method,
+                       variableEmbedding=variableEmbedding)
+        mconf = GPTConfig(train_data.vocab_size, train_data.block_size,
+                  n_layer=8, n_head=8, n_embd=embeddingSize, 
+                  padding_idx=train_data.paddingID)
+        model = GPT(mconf, pconf)
+        if os.path.exists(ckptPath):
+            model.load_state_dict(torch.load(ckptPath))
+
+        
 
 
-
+        tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize, 
+                      learning_rate=6e-4,
+                      lr_decay=True, warmup_tokens=512*20, 
+                      final_tokens=2*len(train_data)*blockSize,
+                      num_workers=0, ckpt_path=ckptPath)
+        
         # Train the model on the train data
+        print("Training ==>")
         trainer = Trainer(model, train_data, val_data, tconf, bestLoss, device = device)
 
         # Evaluate model on train data to get residuals and the predicted function
@@ -276,17 +294,17 @@ if perform_gam:
                                 top_p=0.7)[0]
 
                     # filter out predicted
-                    target = ''.join([train_dataset.itos[int(i)] for i in outputs[0]])
-                    predicted = ''.join([train_dataset.itos[int(i)] for i in outputsHat])
+                    target = ''.join([train_data.itos[int(i)] for i in outputs[0]])
+                    predicted = ''.join([train_data.itos[int(i)] for i in outputsHat])
 
                     if variableEmbedding == 'STR_VAR':
                         target = target.split(':')[-1]
                         predicted = predicted.split(':')[-1]
 
-                    target = target.strip(train_dataset.paddingToken).split('>')
+                    target = target.strip(train_data.paddingToken).split('>')
                     target = target[0] #if len(target[0])>=1 else target[1]
                     target = target.strip('<').strip(">")
-                    predicted = predicted.strip(train_dataset.paddingToken).split('>')
+                    predicted = predicted.strip(train_data.paddingToken).split('>')
                     predicted = predicted[0] #if len(predicted[0])>=1 else predicted[1]
                     predicted = predicted.strip('<').strip(">")
                     
@@ -382,6 +400,25 @@ if perform_gam:
 
 else:
     try:
+        # create the model
+        pconf = PointNetConfig(embeddingSize=embeddingSize, 
+                       numberofPoints=numPoints[1]-1, 
+                       numberofVars=numVars, 
+                       numberofYs=numYs,
+                       method=method,
+                       variableEmbedding=variableEmbedding)
+        mconf = GPTConfig(train_dataset.vocab_size, train_dataset.block_size,
+                  n_layer=8, n_head=8, n_embd=embeddingSize, 
+                  padding_idx=train_dataset.paddingID)
+        model = GPT(mconf, pconf)
+
+
+        # initialize a trainer instance and kick off training
+        tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize, 
+                      learning_rate=6e-4,
+                      lr_decay=True, warmup_tokens=512*20, 
+                      final_tokens=2*len(train_dataset)*blockSize,
+                      num_workers=0, ckpt_path=ckptPath)
         trainer = Trainer(model, train_dataset, val_dataset, tconf, bestLoss, device=device)
         trainer.train()
     except KeyboardInterrupt:
@@ -399,7 +436,7 @@ else:
 # except KeyboardInterrupt:
 #     print('KeyboardInterrupt')
 
-# load the best model
+    #  load the best model
     print('The following model {} has been loaded!'.format(ckptPath))
     model.load_state_dict(torch.load(ckptPath))
     model = model.eval().to(trainer.device)
