@@ -77,6 +77,7 @@ fName = '{}_SymbolicGPT_{}_{}_{}_MINIMIZE.txt'.format(dataInfo,
                                              variableEmbedding)
 perform_gam = True
 ckptPath = '{}/{}.pt'.format(addr,fName.split('.txt')[0])
+ckptPath_gam = '{}/gam/{}.pt'.format(addr,fName.split('.txt')[0])
 try: 
     os.mkdir(addr)
 except:
@@ -224,7 +225,7 @@ if perform_gam:
                                                     trainRange, decimals)
 
         
-
+        # Instantiate the model
         pconf = PointNetConfig(embeddingSize=embeddingSize, 
                        numberofPoints=numPoints[1]-1, 
                        numberofVars=numVars, 
@@ -235,8 +236,10 @@ if perform_gam:
                   n_layer=8, n_head=8, n_embd=embeddingSize, 
                   padding_idx=train_data.paddingID)
         model = GPT(mconf, pconf)
-        if os.path.exists(ckptPath):
-            model.load_state_dict(torch.load(ckptPath))
+        
+        # Loading best model after training once 
+        if os.path.exists(ckptPath_gam):
+            model.load_state_dict(torch.load(ckptPath_gam))
 
         
 
@@ -245,14 +248,14 @@ if perform_gam:
                       learning_rate=6e-4,
                       lr_decay=True, warmup_tokens=512*20, 
                       final_tokens=2*len(train_data)*blockSize,
-                      num_workers=0, ckpt_path=ckptPath)
+                      num_workers=0, ckpt_path=ckptPath_gam)
         
         # Train the model on the train data
         print("Training ==>")
         trainer = Trainer(model, train_data, val_data, tconf, bestLoss, device = device)
 
         # Evaluate model on train data to get residuals and the predicted function
-        print('The following model {} has been loaded!'.format(ckptPath))
+        print('The following model {} has been loaded!'.format(ckptPath_gam))
         model.load_state_dict(torch.load(ckptPath))
         model = model.eval().to(trainer.device)
 
