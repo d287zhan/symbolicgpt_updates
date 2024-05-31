@@ -194,23 +194,23 @@ if perform_gam:
     val_files = glob.glob(val_gam_path)
     test_files = glob.glob(test_gam_path)
 
-    val_data = gam_backfitting_preprocess(False, val_files, blockSize, numVars, numYs,
+    val_data = gam_backfitting_preprocess(False, False, val_files, blockSize, numVars, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals)
     
-    test_data = gam_backfitting_preprocess(False, test_files, blockSize, numVars, numYs,
+    textTest, test_data = gam_backfitting_preprocess(True, False, test_files, blockSize, numVars, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals)
 
     for i in range(numVars):
     # Create the Torch CharDataset
     # If not x_1 then update the next dataset with y = residuals[i-1]
-    
+
         if i == 0:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[i]]
             # Do similar thing with val and test
-            train_data = gam_backfitting_preprocess(True, train_files, blockSize, numVars, numYs,
+            train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, numVars, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals)
             
@@ -220,7 +220,7 @@ if perform_gam:
             new_y = residuals[i-1]
             read_json_lines_and_update_y(train_files, new_y)
 
-            train_data = gam_backfitting_preprocess(True, train_files, blockSize, numVars, numYs,
+            train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, numVars, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals)
 
@@ -228,8 +228,8 @@ if perform_gam:
         # Instantiate the model
         pconf = PointNetConfig(embeddingSize=embeddingSize, 
                        numberofPoints=numPoints[1]-1, 
-                       numberofVars=numVars, 
-                       numberofYs=numYs,
+                       numberofVars=numVars, # Try changing this to 1 for the purpose of training?
+                       numberofYs=numYs, 
                        method=method,
                        variableEmbedding=variableEmbedding)
         mconf = GPTConfig(train_data.vocab_size, train_data.block_size,

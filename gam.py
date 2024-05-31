@@ -58,7 +58,7 @@ def create_gam_datasets(dataset_path, write_path, VarNum):
         read_json_lines_and_write(file, write_path, VarNum)
 
 
-def gam_backfitting_preprocess(is_train, json_file, blockSize, 
+def gam_backfitting_preprocess(is_test, is_train, json_file, blockSize, 
                                numVars, numYs, numPoints, target, addVars,
                                const_range, trainRange, decimals):
     print(f"Processing JSON file: {json_file}")
@@ -73,7 +73,10 @@ def gam_backfitting_preprocess(is_train, json_file, blockSize,
                         numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
                         const_range=const_range, xRange=trainRange, decimals=decimals, augment=False) 
     
-    return dataset
+    if not is_test:
+        return dataset
+    else:
+        return text, dataset
 
 
     
