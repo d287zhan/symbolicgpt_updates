@@ -12,9 +12,8 @@ def read_json_lines_and_write(file_path, out_path, var_num):
             for line_number, line in enumerate(json_file, start=1):
                 try:
                     gam_data = {}
-                    data = json.loads(line)
-                            
-                    new_X = [sublist[var_num] for sublist in data['X']]
+                    data = json.loads(line)        
+                    new_X = [[sublist[var_num]] for sublist in data['X']]
                     gam_data["X"] = new_X
                     gam_data["Y"] = data["Y"] 
                     gam_data["EQ"] = data["EQ"]

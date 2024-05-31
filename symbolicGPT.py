@@ -253,10 +253,11 @@ if perform_gam:
         # Train the model on the train data
         print("Training ==>")
         trainer = Trainer(model, train_data, val_data, tconf, bestLoss, device = device)
+        trainer.train()
 
         # Evaluate model on train data to get residuals and the predicted function
         print('The following model {} has been loaded!'.format(ckptPath_gam))
-        model.load_state_dict(torch.load(ckptPath))
+        model.load_state_dict(torch.load(ckptPath_gam))
         model = model.eval().to(trainer.device)
 
         loader = torch.utils.data.DataLoader(
