@@ -60,23 +60,32 @@ def create_gam_datasets(dataset_path, write_path, VarNum):
 
 def gam_backfitting_preprocess(is_test, is_train, json_file, blockSize, 
                                numVars, numYs, numPoints, target, addVars,
-                               const_range, trainRange, decimals):
+                               const_range, trainRange, decimals, train_chars):
     print(f"Processing JSON file: {json_file}")
     text = processDataFiles(json_file)
-    chars = sorted(list(set(text))+['_','T','<','>',':'])
+    if is_train:
+        chars = sorted(list(set(text))+['_','T','<','>',':'])
+    
     text = text.split('\n') # convert the raw text to a set of examples
     if is_train:
         trainText = text[:-1] if len(text[-1]) == 0 else text
         random.shuffle(trainText) # shuffle the dataset, it's important specailly for the combined number of variables experiment
     
-    dataset = CharDataset(text, blockSize, chars, numVars=numVars, 
+        dataset = CharDataset(text, blockSize, chars, numVars=numVars, 
                         numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
-                        const_range=const_range, xRange=trainRange, decimals=decimals, augment=False) 
-    
-    if not is_test:
-        return dataset
+                        const_range=const_range, xRange=trainRange, decimals=decimals, augment=False)
     else:
+        dataset = CharDataset(text, blockSize, train_chars, numVars=numVars, 
+                        numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
+                        const_range=const_range, xRange=trainRange, decimals=decimals, augment=False)
+
+
+    if is_train:
+        return chars, dataset
+    elif is_test:
         return text, dataset
+    else:
+        return dataset
 
 
     
