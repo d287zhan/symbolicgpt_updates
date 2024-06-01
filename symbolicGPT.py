@@ -99,7 +99,7 @@ else:
         for i in range(numVars):
             print(f"Creating dataset for x_{i}")
             outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
-            create_gam_datasets(path, outpath, i)
+            create_gam_datasets( True, path, outpath, i)
     else:
         files = glob.glob(path)[:maxNumFiles]
         text = processDataFiles(files)
@@ -147,7 +147,7 @@ else:
     for i in range(numVars):
         print(f"Creating dataset for x_{i}")
         outpath = '{}/{}/Val/gam/{}_vars_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
-        create_gam_datasets(path, outpath, i)
+        create_gam_datasets(False, path, outpath, i)
 
 
 # load the test data
@@ -175,7 +175,7 @@ else:
     for i in range(numVars):
         print(f"Creating dataset for x_{i}")
         outpath = '{}/{}/Test/gam/{}_vars_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
-        create_gam_datasets(path, outpath, i)
+        create_gam_datasets(False, path, outpath, i)
 
 # Create own training loop to get a better control over training dynamics
 
@@ -225,6 +225,7 @@ if perform_gam:
         textTest, test_data = gam_backfitting_preprocess(True, False, test_files, blockSize, numVars, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, train_chars)
+        
         # Instantiate the model
         pconf = PointNetConfig(embeddingSize=embeddingSize, 
                        numberofPoints=numPoints[1]-1, 

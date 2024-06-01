@@ -5,7 +5,7 @@ import numpy as np
 import pickle
 from utils import *
 
-def read_json_lines_and_write(file_path, out_path, var_num):
+def read_json_lines_and_write(file_path, out_path, var_num, is_train):
     gam_data = {}
     with open(file_path, 'r') as json_file:
         with open(out_path, 'w') as output_file:
@@ -18,6 +18,11 @@ def read_json_lines_and_write(file_path, out_path, var_num):
                     gam_data["Y"] = data["Y"] 
                     gam_data["EQ"] = data["EQ"]
                     gam_data["Skeleton"] = data["Skeleton"]
+
+                    if not is_train: 
+                        new_XT = [[sublist[var_num]] for sublist in data['XT']]
+                        gam_data["XT"] = new_XT
+                        gam_data["YT"] = data["YT"] 
                     json.dump(gam_data, output_file)
                     output_file.write('\n')
                 except json.JSONDecodeError as e:
@@ -40,7 +45,7 @@ def read_json_lines_and_update_y(file_path, residuals):
 
 
 # Break down train dataset into separate vars and return a new dataset
-def create_gam_datasets(dataset_path, write_path, VarNum):
+def create_gam_datasets(is_train ,dataset_path, write_path, VarNum):
     if os.path.exists(write_path):
         print(f"The write path '{write_path}' already exists. The function will not run.")
         return
@@ -55,7 +60,7 @@ def create_gam_datasets(dataset_path, write_path, VarNum):
 
     for file in files:
         print(f"Extracting from {file}")
-        read_json_lines_and_write(file, write_path, VarNum)
+        read_json_lines_and_write(file, write_path, VarNum, is_train)
 
 
 def gam_backfitting_preprocess(is_test, is_train, json_file, blockSize, 
@@ -71,11 +76,11 @@ def gam_backfitting_preprocess(is_test, is_train, json_file, blockSize,
         trainText = text[:-1] if len(text[-1]) == 0 else text
         random.shuffle(trainText) # shuffle the dataset, it's important specailly for the combined number of variables experiment
     
-        dataset = CharDataset(text, blockSize, chars, numVars=numVars, 
+        dataset = CharDataset(text, blockSize, chars, numVars=1, # 1 variable because we fit 1 variable at a time
                         numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
                         const_range=const_range, xRange=trainRange, decimals=decimals, augment=False)
     else:
-        dataset = CharDataset(text, blockSize, train_chars, numVars=numVars, 
+        dataset = CharDataset(text, blockSize, train_chars, numVars=1, 
                         numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
                         const_range=const_range, xRange=trainRange, decimals=decimals, augment=False)
 
