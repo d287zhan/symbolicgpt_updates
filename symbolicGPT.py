@@ -206,7 +206,7 @@ if perform_gam:
             # Do similar thing with val and test
             train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, numVars, numYs,
                                                     numPoints, target, addVars, const_range, 
-                                                    trainRange, decimals)
+                                                    trainRange, decimals, None)
             
         else:
             train_files = [glob.glob(train_gam_path)[i]]
@@ -228,8 +228,8 @@ if perform_gam:
         # Instantiate the model
         pconf = PointNetConfig(embeddingSize=embeddingSize, 
                        numberofPoints=numPoints[1]-1, 
-                       numberofVars=numVars, # Try changing this to 1 for the purpose of training?
-                       #numberofVars=1,
+                       #numberofVars=numVars, # Try changing this to 1 for the purpose of training?
+                       numberofVars=1, # 1 because we are training 1 variable at a time
                        numberofYs=numYs, 
                        method=method,
                        variableEmbedding=variableEmbedding)
