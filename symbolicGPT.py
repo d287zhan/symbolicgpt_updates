@@ -717,7 +717,7 @@ else:
         print('KeyboardInterrupt')
 
 # plot the error frequency for model comparison
-num_eqns = len(resultDict[fName]['SymbolicGPT'])resultDict_tr = {}
+num_eqns = len(resultDict[fName]['SymbolicGPT'])
 num_vars = pconf.numberofVars
 title = titleTemplate.format(num_eqns, num_vars)
 
