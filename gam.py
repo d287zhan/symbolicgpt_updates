@@ -86,7 +86,7 @@ def gam_backfitting_preprocess(is_test, is_train, json_file, blockSize,
 
 
     if is_train:
-        return chars, dataset
+        return trainText, chars, dataset
     elif is_test:
         return text, dataset
     else:

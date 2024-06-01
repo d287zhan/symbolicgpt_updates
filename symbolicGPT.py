@@ -199,7 +199,7 @@ if perform_gam:
     for i in range(numVars):
     # Create the Torch CharDataset
     # If not x_1 then update the next dataset with y = residuals[i-1]
-
+        print(f"Training on x_{i}")
         if i == 0:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[i]]
@@ -214,7 +214,7 @@ if perform_gam:
             new_y = residuals[i-1]
             read_json_lines_and_update_y(train_files, new_y)
 
-            train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, numVars, numYs,
+            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, numVars, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
 
@@ -269,9 +269,142 @@ if perform_gam:
                                 batch_size=1,
                                 num_workers=0)
         
-        resultDict = {}
+        resultDict_tr = {}
         # Compute Residuals
 
+        try:
+            with open(fName, 'w', encoding="utf-8") as o:
+                resultDict_tr[fName] = {'SymbolicGPT':[]}
+
+                for i, batch in enumerate(loader):
+                        
+                    inputs,outputs,points,variables = batch
+
+                    print('Train Case {}.'.format(i))
+                    o.write('Train Case {}/{}.\n'.format(i,len(textTest)-1))
+
+                    tr = json.loads(trainText[i])
+
+                    inputs = inputs[:,0:1].to(trainer.device)
+                    points = points.to(trainer.device)
+                    variables = variables.to(trainer.device)
+                    outputsHat = sample_from_model(
+                                model, 
+                                inputs, 
+                                blockSize, 
+                                points=points,
+                                variables=variables,
+                                temperature=1.0, 
+                                sample=True, 
+                                top_k=0.0,
+                                top_p=0.7)[0]
+
+                    # filter out predicted
+                    target = ''.join([train_data.itos[int(i)] for i in outputs[0]])
+                    predicted = ''.join([train_data.itos[int(i)] for i in outputsHat])
+
+                    if variableEmbedding == 'STR_VAR':
+                        target = target.split(':')[-1]
+                        predicted = predicted.split(':')[-1]
+
+                    target = target.strip(train_data.paddingToken).split('>')
+                    target = target[0] #if len(target[0])>=1 else target[1]
+                    target = target.strip('<').strip(">")
+                    predicted = predicted.strip(train_data.paddingToken).split('>')
+                    predicted = predicted[0] #if len(predicted[0])>=1 else predicted[1]
+                    predicted = predicted.strip('<').strip(">")
+                    
+                    print('Target:{}\nSkeleton:{}'.format(target, predicted))
+                    
+                    o.write('{}\n'.format(target))
+                    o.write('{}:\n'.format('SymbolicGPT'))
+                    o.write('{}\n'.format(predicted))
+
+                    # train a regressor to find the constants (too slow)
+                    c = [1.0 for i,x in enumerate(predicted) if x=='C'] # initialize coefficients as 1
+                    # c[-1] = 0 # initialize the constant as zero
+                    b = [(-2,2) for i,x in enumerate(predicted) if x=='C']  # bounds on variables
+                    try:
+                        if len(c) != 0:
+                            # This is the bottleneck in our algorithm
+                            # for easier comparison, we are using minimize package  
+                            cHat = minimize(lossFunc, c, #bounds=b,
+                                        args=(predicted, t['X'], t['Y'])) 
+                
+                            predicted = predicted.replace('C','{}').format(*cHat.x)
+                    except ValueError:
+                        raise 'Err: Wrong Equation {}'.format(predicted)
+                    except Exception as e:
+                        raise 'Err: Wrong Equation {}, Err: {}'.format(predicted, e)
+
+                    # TODO: let's enjoy GPU
+
+                    print('Skeleton+LS:{}'.format(predicted))
+
+                    Ys_tr = [] #t['YT']
+                    Yhats_tr = []
+                    for xs in tr['X']:
+                        try:
+                            eqTmp = target + '' # copy eq
+                            eqTmp = eqTmp.replace(' ','')
+                            eqTmp = eqTmp.replace('\n','')
+                            for i,x in enumerate(xs):
+                                # replace xi with the value in the eq
+                                eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                if ',' in eqTmp:
+                                    assert 'There is a , in the equation!'
+                            YEval = eval(eqTmp)
+                            # YEval = 0 if np.isnan(YEval) else YEval
+                            # YEval = 100 if np.isinf(YEval) else YEval
+                        except:
+                            print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                            print(i)
+                            raise
+                            continue # if there is any point in the target equation that has any problem, ignore it
+                            YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+                        Ys_tr.append(YEval)
+                        try:
+                            eqTmp = predicted + '' # copy eq
+                            eqTmp = eqTmp.replace(' ','')
+                            eqTmp = eqTmp.replace('\n','')
+                            for i,x in enumerate(xs):
+                                # replace xi with the value in the eq
+                                eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                if ',' in eqTmp:
+                                    assert 'There is a , in the equation!'
+                            Yhat = eval(eqTmp)
+                            # Yhat = 0 if np.isnan(Yhat) else Yhat
+                            # Yhat = 100 if np.isinf(Yhat) else Yhat
+                        except:
+                            print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                            Yhat = 100
+                        Yhats_tr.append(Yhat)
+                    err = relativeErr(Ys_tr,Yhats_tr, info=True)
+                    res = compute_residuals(Ys_tr,Yhats_tr, info=True)
+
+                    residuals.append(res)
+                    if type(err) is np.complex128 or np.complex:
+                        err = abs(err.real)
+
+                    resultDict_tr[fName]['SymbolicGPT'].append(err)
+                    resultDict_tr[fName]['SymbolicGPT'].append(res)
+                    
+                    o.write('{}\n{}\n{}\n\n'.format( 
+                                            predicted,
+                                            err, 
+                                            res
+                                            ))
+
+                    print('Err:{}'.format(err))
+                    print('Residuals:{}'.format(res))
+                    print('') # just an empty line
+            print('Avg Err:{}'.format(np.mean(resultDict_tr[fName]['SymbolicGPT'])))
+        
+        except KeyboardInterrupt:
+            print('KeyboardInterrupt')
+
+
+        resultDict = {}
         try:
             with open(fName, 'w', encoding="utf-8") as o:
                 resultDict[fName] = {'SymbolicGPT':[]}
@@ -284,7 +417,7 @@ if perform_gam:
                     o.write('Test Case {}/{}.\n'.format(i,len(textTest)-1))
 
                     t = json.loads(textTest[i])
-
+        
                     inputs = inputs[:,0:1].to(trainer.device)
                     points = points.to(trainer.device)
                     variables = variables.to(trainer.device)
@@ -381,13 +514,13 @@ if perform_gam:
                         Yhats.append(Yhat)
                     err = relativeErr(Ys,Yhats, info=True)
                     res = compute_residuals(Ys,Yhats, info=True)
+
                     if type(err) is np.complex128 or np.complex:
                         err = abs(err.real)
 
                     resultDict[fName]['SymbolicGPT'].append(err)
                     resultDict[fName]['SymbolicGPT'].append(res)
-                    # Append to the residuals list created above
-                    residuals.append(res)
+                    
                     o.write('{}\n{}\n{}\n\n'.format( 
                                             predicted,
                                             err, 
@@ -401,8 +534,6 @@ if perform_gam:
         
         except KeyboardInterrupt:
             print('KeyboardInterrupt')
-
-
 
 else:
     try:
@@ -586,7 +717,7 @@ else:
         print('KeyboardInterrupt')
 
 # plot the error frequency for model comparison
-num_eqns = len(resultDict[fName]['SymbolicGPT'])
+num_eqns = len(resultDict[fName]['SymbolicGPT'])resultDict_tr = {}
 num_vars = pconf.numberofVars
 title = titleTemplate.format(num_eqns, num_vars)
 
