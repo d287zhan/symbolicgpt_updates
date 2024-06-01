@@ -204,7 +204,7 @@ if perform_gam:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[i]]
             # Do similar thing with val and test
-            train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, numVars, numYs,
+            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, numVars, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
             
