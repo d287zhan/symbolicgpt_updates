@@ -123,8 +123,8 @@ else:
         #idx = 1
         inputs, outputs, points, variables = train_dataset_full.__getitem__(idx)
         print('inputs:{}'.format(inputs))
-        inputs = ''.join([train_dataset.itos[int(i)] for i in inputs])
-        outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
+        inputs = ''.join([train_dataset_full.itos[int(i)] for i in inputs])
+        outputs = ''.join([train_dataset_full.itos[int(i)] for i in outputs])
         print("Train")
         print('id:{}\ninputs:{}\noutputs:{}\npoints:{}\nvariables:{}'.format(idx,inputs,outputs,points, variables))
 
@@ -581,9 +581,9 @@ else:
                        numberofYs=numYs,
                        method=method,
                        variableEmbedding=variableEmbedding)
-        mconf = GPTConfig(train_dataset.vocab_size, train_dataset.block_size,
+        mconf = GPTConfig(train_dataset_full.vocab_size, train_dataset_full.block_size,
                   n_layer=8, n_head=8, n_embd=embeddingSize, 
-                  padding_idx=train_dataset.paddingID)
+                  padding_idx=train_dataset_full.paddingID)
         model = GPT(mconf, pconf)
 
 
@@ -591,7 +591,7 @@ else:
         tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize, 
                       learning_rate=6e-4,
                       lr_decay=True, warmup_tokens=512*20, 
-                      final_tokens=2*len(train_dataset)*blockSize,
+                      final_tokens=2*len(train_dataset_full)*blockSize,
                       num_workers=0, ckpt_path=ckptPath)
         trainer = Trainer(model, train_dataset_full, val_dataset_full, tconf, bestLoss, device=device)
         trainer.train()
@@ -618,7 +618,7 @@ else:
     ## Test the model
     # alright, let's sample some character-level symbolic GPT 
     loader = torch.utils.data.DataLoader(
-                                    test_dataset, 
+                                    test_dataset_full, 
                                     shuffle=False, 
                                     pin_memory=True,
                                     batch_size=1,
@@ -635,9 +635,9 @@ else:
                 inputs,outputs,points,variables = batch
 
                 print('Test Case {}.'.format(i))
-                o.write('Test Case {}/{}.\n'.format(i,len(textTest)-1))
+                o.write('Test Case {}/{}.\n'.format(i,len(textTest_full)-1))
 
-                t = json.loads(textTest[i])
+                t = json.loads(textTest_full[i])
 
                 inputs = inputs[:,0:1].to(trainer.device)
                 points = points.to(trainer.device)
@@ -654,17 +654,17 @@ else:
                             top_p=0.7)[0]
 
                 # filter out predicted
-                target = ''.join([train_dataset.itos[int(i)] for i in outputs[0]])
-                predicted = ''.join([train_dataset.itos[int(i)] for i in outputsHat])
+                target = ''.join([train_dataset_full.itos[int(i)] for i in outputs[0]])
+                predicted = ''.join([train_dataset_full.itos[int(i)] for i in outputsHat])
 
                 if variableEmbedding == 'STR_VAR':
                     target = target.split(':')[-1]
                     predicted = predicted.split(':')[-1]
 
-                target = target.strip(train_dataset.paddingToken).split('>')
+                target = target.strip(train_dataset_full.paddingToken).split('>')
                 target = target[0] #if len(target[0])>=1 else target[1]
                 target = target.strip('<').strip(">")
-                predicted = predicted.strip(train_dataset.paddingToken).split('>')
+                predicted = predicted.strip(train_dataset_full.paddingToken).split('>')
                 predicted = predicted[0] #if len(predicted[0])>=1 else predicted[1]
                 predicted = predicted.strip('<').strip(">")
                 
