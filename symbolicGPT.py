@@ -76,6 +76,10 @@ fName = '{}_SymbolicGPT_{}_{}_{}_MINIMIZE.txt'.format(dataInfo,
                                              'Padding',
                                              variableEmbedding)
 perform_gam = True
+get_full_train = False
+get_full_val= False
+get_full_test = False
+
 ckptPath = '{}/{}.pt'.format(addr,fName.split('.txt')[0])
 ckptPath_gam = '{}/gam/{}.pt'.format(addr,fName.split('.txt')[0])
 try: 
@@ -100,14 +104,14 @@ else:
             print(f"Creating dataset for x_{i}")
             outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
             create_gam_datasets( True, path, outpath, i)
-    else:
+    if get_full_train:
         files = glob.glob(path)[:maxNumFiles]
         text = processDataFiles(files)
         chars = sorted(list(set(text))+['_','T','<','>',':']) # extract unique characters from the text before converting the text to a list, # T is for the test data
         text = text.split('\n') # convert the raw text to a set of examples
-        trainText = text[:-1] if len(text[-1]) == 0 else text
-        random.shuffle(trainText) # shuffle the dataset, it's important specailly for the combined number of variables experiment
-        train_dataset = CharDataset(text, blockSize, chars, numVars=numVars, 
+        trainText_full = text[:-1] if len(text[-1]) == 0 else text
+        random.shuffle(trainText_full) # shuffle the dataset, it's important specailly for the combined number of variables experiment
+        train_dataset_full = CharDataset(text, blockSize, chars, numVars=numVars, 
                         numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
                         const_range=const_range, xRange=trainRange, decimals=decimals, augment=False) 
     # with open(train_file, 'wb') as f:
@@ -115,9 +119,9 @@ else:
 
 
         # print a random sample
-        idx = np.random.randint(train_dataset.__len__())
+        idx = np.random.randint(train_dataset_full.__len__())
         #idx = 1
-        inputs, outputs, points, variables = train_dataset.__getitem__(idx)
+        inputs, outputs, points, variables = train_dataset_full.__getitem__(idx)
         print('inputs:{}'.format(inputs))
         inputs = ''.join([train_dataset.itos[int(i)] for i in inputs])
         outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
@@ -126,24 +130,24 @@ else:
 
 # load the val dataset
 path = '{}/{}/Val/*.json'.format(dataDir,dataFolder)
-if not perform_gam:
+if get_full_val:
     files = glob.glob(path)
-    textVal = processDataFiles([files[0]])
-    textVal = textVal.split('\n') # convert the raw text to a set of examples
-    val_dataset = CharDataset(textVal, blockSize, chars, numVars=numVars, 
+    textVal_full = processDataFiles([files[0]])
+    textVal_full = textVal_full.split('\n') # convert the raw text to a set of examples
+    val_dataset_full = CharDataset(textVal_full, blockSize, chars, numVars=numVars, 
                     numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
                     const_range=const_range, xRange=trainRange, decimals=decimals)
     
     # print a random sample
-    idx = np.random.randint(val_dataset.__len__())
-    inputs, outputs, points, variables = val_dataset.__getitem__(idx)
+    idx = np.random.randint(val_dataset_full.__len__())
+    inputs, outputs, points, variables = val_dataset_full.__getitem__(idx)
     print(points.min(), points.max())
-    inputs = ''.join([train_dataset.itos[int(i)] for i in inputs])
-    outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
+    inputs = ''.join([train_dataset_full.itos[int(i)] for i in inputs])
+    outputs = ''.join([train_dataset_full.itos[int(i)] for i in outputs])
     print("Val")
     print('id:{}\ninputs:{}\noutputs:{}\npoints:{}\nvariables:{}'.format(idx,inputs,outputs,points, variables))
 
-else:
+if perform_gam:
     for i in range(numVars):
         print(f"Creating dataset for x_{i}")
         outpath = '{}/{}/Val/gam/{}_vars_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
@@ -154,24 +158,24 @@ else:
 path = f'{dataDir}/{dataFolder}/Test/*.json'
 print(f'test path is {path}')
 
-if not perform_gam:
+if get_full_test:
     files = glob.glob(path)
-    textTest = processDataFiles(files)
-    textTest = textTest.split('\n') # convert the raw text to a set of examples
+    textTest_full = processDataFiles(files)
+    textTest_full = textTest_full.split('\n') # convert the raw text to a set of examples
     # test_dataset_target = CharDataset(textTest, blockSize, chars, target=target)
-    test_dataset = CharDataset(textTest, testBlockSize, chars, numVars=numVars, 
+    test_dataset_full = CharDataset(textTest_full, testBlockSize, chars, numVars=numVars, 
                     numYs=numYs, numPoints=numPoints, addVars=addVars,
                     const_range=const_range, xRange=trainRange, decimals=decimals)
 
     # print a random sample
-    idx = np.random.randint(test_dataset.__len__())
-    inputs, outputs, points, variables = test_dataset.__getitem__(idx)
+    idx = np.random.randint(test_dataset_full.__len__())
+    inputs, outputs, points, variables = test_dataset_full.__getitem__(idx)
     print(points.min(), points.max())
-    inputs = ''.join([train_dataset.itos[int(i)] for i in inputs])
-    outputs = ''.join([train_dataset.itos[int(i)] for i in outputs])
+    inputs = ''.join([train_dataset_full.itos[int(i)] for i in inputs])
+    outputs = ''.join([train_dataset_full.itos[int(i)] for i in outputs])
     print("Test")
     print('id:{}\ninputs:{}\noutputs:{}\npoints:{}\nvariables:{}'.format(idx,inputs,outputs,points, variables))
-else:
+if perform_gam:
     for i in range(numVars):
         print(f"Creating dataset for x_{i}")
         outpath = '{}/{}/Test/gam/{}_vars_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
@@ -246,7 +250,7 @@ if perform_gam:
         
 
 
-        tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize, 
+        tconf = TrainerConfig(max_epochs=1, batch_size=batchSize, 
                       learning_rate=6e-4,
                       lr_decay=True, warmup_tokens=512*20, 
                       final_tokens=2*len(train_data)*blockSize,
@@ -274,17 +278,15 @@ if perform_gam:
 
         try:
             with open(fName, 'w', encoding="utf-8") as o:
-                resultDict_tr[fName] = {'SymbolicGPT':[]}
+                resultDict_tr[fName] = {'SymbolicGPT':{'Error': [], 'Residuals': []}}
 
                 for i, batch in enumerate(loader):
                         
                     inputs,outputs,points,variables = batch
-
                     print('Train Case {}.'.format(i))
-                    o.write('Train Case {}/{}.\n'.format(i,len(textTest)-1))
+                    o.write('Train Case {}/{}.\n'.format(i,len(trainText)-1))
 
                     tr = json.loads(trainText[i])
-
                     inputs = inputs[:,0:1].to(trainer.device)
                     points = points.to(trainer.device)
                     variables = variables.to(trainer.device)
@@ -298,6 +300,8 @@ if perform_gam:
                                 sample=True, 
                                 top_k=0.0,
                                 top_p=0.7)[0]
+
+
 
                     # filter out predicted
                     target = ''.join([train_data.itos[int(i)] for i in outputs[0]])
@@ -329,8 +333,8 @@ if perform_gam:
                             # This is the bottleneck in our algorithm
                             # for easier comparison, we are using minimize package  
                             cHat = minimize(lossFunc, c, #bounds=b,
-                                        args=(predicted, t['X'], t['Y'])) 
-                
+                                        args=(predicted, tr['X'], tr['Y'])) 
+                            
                             predicted = predicted.replace('C','{}').format(*cHat.x)
                     except ValueError:
                         raise 'Err: Wrong Equation {}'.format(predicted)
@@ -350,7 +354,11 @@ if perform_gam:
                             eqTmp = eqTmp.replace('\n','')
                             for i,x in enumerate(xs):
                                 # replace xi with the value in the eq
-                                eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                if not perform_gam:
+                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                else:
+                                    for idx in range(numVars):
+                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
                                 if ',' in eqTmp:
                                     assert 'There is a , in the equation!'
                             YEval = eval(eqTmp)
@@ -358,10 +366,20 @@ if perform_gam:
                             # YEval = 100 if np.isinf(YEval) else YEval
                         except:
                             print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
-                            print(i)
-                            raise
-                            continue # if there is any point in the target equation that has any problem, ignore it
-                            YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+                            print("Utilizing EQ from data")
+                            eqTmp = tr['EQ']
+                            eqTmp = eqTmp.replace(' ','')
+                            eqTmp = eqTmp.replace('\n','')
+                            for i,x in enumerate(xs):
+                                if not perform_gam:
+                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                else:
+                                    for idx in range(numVars):
+                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+
+                            YEval = eval(eqTmp)    
+                            #continue # if there is any point in the target equation that has any problem, ignore it
+                            #YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
                         Ys_tr.append(YEval)
                         try:
                             eqTmp = predicted + '' # copy eq
@@ -369,7 +387,12 @@ if perform_gam:
                             eqTmp = eqTmp.replace('\n','')
                             for i,x in enumerate(xs):
                                 # replace xi with the value in the eq
-                                eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                if not perform_gam:
+                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                else:
+                                    for idx in range(numVars):
+                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+
                                 if ',' in eqTmp:
                                     assert 'There is a , in the equation!'
                             Yhat = eval(eqTmp)
@@ -381,13 +404,13 @@ if perform_gam:
                         Yhats_tr.append(Yhat)
                     err = relativeErr(Ys_tr,Yhats_tr, info=True)
                     res = compute_residuals(Ys_tr,Yhats_tr, info=True)
-
                     residuals.append(res)
+
                     if type(err) is np.complex128 or np.complex:
                         err = abs(err.real)
 
-                    resultDict_tr[fName]['SymbolicGPT'].append(err)
-                    resultDict_tr[fName]['SymbolicGPT'].append(res)
+                    resultDict_tr[fName]['SymbolicGPT']['Error'].append(err)
+                    resultDict_tr[fName]['SymbolicGPT']['Residuals'].append(res)
                     
                     o.write('{}\n{}\n{}\n\n'.format( 
                                             predicted,
@@ -403,13 +426,20 @@ if perform_gam:
         except KeyboardInterrupt:
             print('KeyboardInterrupt')
 
+        loader2 = torch.utils.data.DataLoader(
+                                test_data, 
+                                shuffle=False, 
+                                pin_memory=True,
+                                batch_size=1,
+                                num_workers=0)
+
 
         resultDict = {}
         try:
             with open(fName, 'w', encoding="utf-8") as o:
-                resultDict[fName] = {'SymbolicGPT':[]}
+                resultDict[fName] = {'SymbolicGPT':{'Error': [], 'Residuals':[]}}
 
-                for i, batch in enumerate(loader):
+                for i, batch in enumerate(loader2):
                         
                     inputs,outputs,points,variables = batch
 
@@ -417,7 +447,6 @@ if perform_gam:
                     o.write('Test Case {}/{}.\n'.format(i,len(textTest)-1))
 
                     t = json.loads(textTest[i])
-        
                     inputs = inputs[:,0:1].to(trainer.device)
                     points = points.to(trainer.device)
                     variables = variables.to(trainer.device)
@@ -491,8 +520,16 @@ if perform_gam:
                             # YEval = 100 if np.isinf(YEval) else YEval
                         except:
                             print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
-                            print(i)
-                            raise
+                            print("Utilizing EQ from data")
+                            eqTmp = t['EQ']
+                            eqTmp = eqTmp.replace(' ','')
+                            eqTmp = eqTmp.replace('\n','')
+                            for i,x in enumerate(xs):
+                                if not perform_gam:
+                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                else:
+                                    for idx in range(numVars):
+                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
                             continue # if there is any point in the target equation that has any problem, ignore it
                             YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
                         Ys.append(YEval)
@@ -518,8 +555,8 @@ if perform_gam:
                     if type(err) is np.complex128 or np.complex:
                         err = abs(err.real)
 
-                    resultDict[fName]['SymbolicGPT'].append(err)
-                    resultDict[fName]['SymbolicGPT'].append(res)
+                    resultDict[fName]['SymbolicGPT']['Error'].append(err)
+                    resultDict[fName]['SymbolicGPT']['Residuals'].append(res)
                     
                     o.write('{}\n{}\n{}\n\n'.format( 
                                             predicted,
@@ -556,7 +593,7 @@ else:
                       lr_decay=True, warmup_tokens=512*20, 
                       final_tokens=2*len(train_dataset)*blockSize,
                       num_workers=0, ckpt_path=ckptPath)
-        trainer = Trainer(model, train_dataset, val_dataset, tconf, bestLoss, device=device)
+        trainer = Trainer(model, train_dataset_full, val_dataset_full, tconf, bestLoss, device=device)
         trainer.train()
     except KeyboardInterrupt:
         print('KeyboardInterrupt')
@@ -718,6 +755,7 @@ else:
 
 # plot the error frequency for model comparison
 num_eqns = len(resultDict[fName]['SymbolicGPT'])
+
 num_vars = pconf.numberofVars
 title = titleTemplate.format(num_eqns, num_vars)
 
