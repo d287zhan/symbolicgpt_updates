@@ -754,8 +754,10 @@ else:
         print('KeyboardInterrupt')
 
 # plot the error frequency for model comparison
-num_eqns = len(resultDict[fName]['SymbolicGPT'])
-
+if not perform_gam:
+    num_eqns = len(resultDict[fName]['SymbolicGPT'])
+else:
+    num_eqns = len(resultDict[fName]['SymbolicGPT']['Error'])
 num_vars = pconf.numberofVars
 title = titleTemplate.format(num_eqns, num_vars)
 
