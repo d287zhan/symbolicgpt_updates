@@ -189,7 +189,7 @@ gam_path = '{}/{}/Train/gam/*.json'.format(dataDir, dataFolder)
 
 if perform_gam:
     additive_functions = []
-    residuals = []
+    residuals = {}
 
     train_gam_path = '{}/{}/Train/gam/*.json'.format(dataDir, dataFolder)
     val_gam_path = '{}/{}/Val/gam/*.json'.format(dataDir, dataFolder)
@@ -202,23 +202,25 @@ if perform_gam:
 
     for i in range(numVars):
     # Create the Torch CharDataset
-    # If not x_1 then update the next dataset with y = residuals[i-1]
+    # If not x_1 then update the next dataset with y = residuals
         print(f"Training on x_{i}")
         if i == 0:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[i]]
+            print(f"Reading file {train_files}")
             # Do similar thing with val and test
             trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
             
         else:
+            print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[i]]
             # update with residuals
-            new_y = residuals[i-1]
-            read_json_lines_and_update_y(train_files, new_y)
-
-            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, 1, numYs,
+            outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,i)
+            for file in train_files:
+                read_json_lines_and_update_y(file, residuals, outpath)
+            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, outpath, blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
 
@@ -259,7 +261,8 @@ if perform_gam:
         # Train the model on the train data
         print("Training ==>")
         trainer = Trainer(model, train_data, val_data, tconf, bestLoss, device = device)
-        trainer.train()
+        if i != 0:
+            trainer.train()
 
         # Evaluate model on train data to get residuals and the predicted function
         print('The following model {} has been loaded!'.format(ckptPath_gam))
@@ -279,7 +282,6 @@ if perform_gam:
         try:
             with open(fName, 'w', encoding="utf-8") as o:
                 resultDict_tr[fName] = {'SymbolicGPT':{'Error': [], 'Residuals': []}}
-
                 for i, batch in enumerate(loader):
                         
                     inputs,outputs,points,variables = batch
@@ -401,10 +403,10 @@ if perform_gam:
                         except:
                             print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
                             Yhat = 100
-                        Yhats_tr.append(Yhat)
+                        Yhats_tr.append(Yhat)   
                     err = relativeErr(Ys_tr,Yhats_tr, info=True)
                     res = compute_residuals(Ys_tr,Yhats_tr, info=True)
-                    residuals.append(res)
+                    residuals[i] = res
 
                     if type(err) is np.complex128 or np.complex:
                         err = abs(err.real)
@@ -412,10 +414,9 @@ if perform_gam:
                     resultDict_tr[fName]['SymbolicGPT']['Error'].append(err)
                     resultDict_tr[fName]['SymbolicGPT']['Residuals'].append(res)
                     
-                    o.write('{}\n{}\n{}\n\n'.format( 
+                    o.write('{}\n{}\n\n'.format( 
                                             predicted,
-                                            err, 
-                                            res
+                                            err
                                             ))
 
                     print('Err:{}'.format(err))
@@ -550,22 +551,23 @@ if perform_gam:
                             Yhat = 100
                         Yhats.append(Yhat)
                     err = relativeErr(Ys,Yhats, info=True)
-                    res = compute_residuals(Ys,Yhats, info=True)
+                    # Don't need to compute residuals on test set
+                    # res = compute_residuals(Ys,Yhats, info=True)
 
                     if type(err) is np.complex128 or np.complex:
                         err = abs(err.real)
 
                     resultDict[fName]['SymbolicGPT']['Error'].append(err)
-                    resultDict[fName]['SymbolicGPT']['Residuals'].append(res)
+                    #resultDict[fName]['SymbolicGPT']['Residuals'].append(res)
                     
-                    o.write('{}\n{}\n{}\n\n'.format( 
+                    o.write('{}\n{}\n\n'.format( 
                                             predicted,
-                                            err, 
-                                            res
+                                            err
+                                            #res
                                             ))
 
                     print('Err:{}'.format(err))
-                    print('Residuals:{}'.format(res))
+                    #print('Residuals:{}'.format(res))
                     print('') # just an empty line
             print('Avg Err:{}'.format(np.mean(resultDict[fName]['SymbolicGPT'])))
         

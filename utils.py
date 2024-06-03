@@ -364,13 +364,13 @@ def compute_residuals(y, yHat, info = False):
 
     if len(y) > 0 and len(y)==len(yHat):
         residuals = (y - yHat)
-    
         if info:
             for _ in range(5):
                 i = np.random.randint(len(y))
                 print('yPR,yTrue:{},{}, Res:{}'.format(yHat[i],y[i],residuals[i]))
+    else:
+        print("The length of the vector is not > 0")
 
-    # Return the entire residual vector to backfit with the next covariate
     return residuals
     
 

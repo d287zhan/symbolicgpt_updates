@@ -6,7 +6,6 @@ import pickle
 from utils import *
 
 def read_json_lines_and_write(file_path, out_path, var_num, is_train):
-    gam_data = {}
     with open(file_path, 'r') as json_file:
         with open(out_path, 'w') as output_file:
             for line_number, line in enumerate(json_file, start=1):
@@ -29,20 +28,24 @@ def read_json_lines_and_write(file_path, out_path, var_num, is_train):
                         print(f"Error decoding JSON on line {line_number}: {e}")
 
 # Update the json object 
-def read_json_lines_and_update_y(file_path, residuals):
-    try:
-        with open(file_path, 'w') as file:
+def read_json_lines_and_update_y(file_path, residuals, out_path):
+    # Read the JSON file line by line
+    with open(file_path, 'r') as file:
+        with open(out_path, 'w') as output_file:
             for line_number, line in enumerate(file, start=1):
-                try:
-                    data = json.loads(line)
-                    data["Y"] = residuals
-                except json.JSONDecodeError as e:
-                    print(f"Error decoding JSON on line {line_number}: {e}")
-    except FileNotFoundError:
-        print(f"Error: The file at path '{file_path}' was not found.")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+                updated_data = {}
+                data = json.loads(line)
+                updated_data["X"] = data["X"]
+                if (line_number -1) in residuals.keys():
+                    updated_data["Y"] = residuals[line_number-1].tolist()
+                else:
+                    updated_data["Y"] = data["Y"]
+                updated_data["EQ"] = data["EQ"]
+                updated_data["Skeleton"] = data["Skeleton"]
 
+                json.dump(updated_data , output_file)
+                output_file.write('\n')
+    
 
 # Break down train dataset into separate vars and return a new dataset
 def create_gam_datasets(is_train ,dataset_path, write_path, VarNum):
