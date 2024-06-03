@@ -208,7 +208,7 @@ if perform_gam:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[i]]
             # Do similar thing with val and test
-            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, numVars, numYs,
+            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
             
@@ -218,15 +218,15 @@ if perform_gam:
             new_y = residuals[i-1]
             read_json_lines_and_update_y(train_files, new_y)
 
-            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, numVars, numYs,
+            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
 
-        val_data = gam_backfitting_preprocess(False, False, val_files, blockSize, numVars, numYs,
+        val_data = gam_backfitting_preprocess(False, False, val_files, blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, train_chars)
     
-        textTest, test_data = gam_backfitting_preprocess(True, False, test_files, blockSize, numVars, numYs,
+        textTest, test_data = gam_backfitting_preprocess(True, False, test_files, blockSize,1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, train_chars)
         

@@ -76,11 +76,11 @@ def gam_backfitting_preprocess(is_test, is_train, json_file, blockSize,
         trainText = text[:-1] if len(text[-1]) == 0 else text
         random.shuffle(trainText) # shuffle the dataset, it's important specailly for the combined number of variables experiment
     
-        dataset = CharDataset(text, blockSize, chars, numVars=1, # 1 variable because we fit 1 variable at a time
+        dataset = CharDataset(text, blockSize, chars, numVars, # 1 variable because we fit 1 variable at a time
                         numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
                         const_range=const_range, xRange=trainRange, decimals=decimals, augment=False)
     else:
-        dataset = CharDataset(text, blockSize, train_chars, numVars=1, 
+        dataset = CharDataset(text, blockSize, train_chars, numVars, 
                         numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
                         const_range=const_range, xRange=trainRange, decimals=decimals, augment=False)
 
