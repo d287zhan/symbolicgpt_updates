@@ -220,7 +220,7 @@ if perform_gam:
             outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,i)
             for file in train_files:
                 read_json_lines_and_update_y(file, residuals, outpath)
-            print("Done updating")
+            print("Done updating!")
             trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, [outpath], blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
@@ -278,7 +278,6 @@ if perform_gam:
         
         resultDict_tr = {}
         # Compute Residuals
-
         try:
             with open(fName, 'w', encoding="utf-8") as o:
                 resultDict_tr[fName] = {'SymbolicGPT':{'Error': [], 'Residuals': []}}
