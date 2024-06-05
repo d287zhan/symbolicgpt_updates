@@ -253,9 +253,6 @@ if perform_gam:
             if os.path.exists(ckptPath_gam):
                 model.load_state_dict(torch.load(ckptPath_gam))
 
-        
-
-
         tconf = TrainerConfig(max_epochs=1, batch_size=batchSize, 
                       learning_rate=6e-4,
                       lr_decay=True, warmup_tokens=512*20, 
