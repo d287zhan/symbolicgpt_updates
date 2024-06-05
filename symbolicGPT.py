@@ -39,7 +39,7 @@ set_seed(42)
 # config
 device='gpu'
 scratch=True # if you want to ignore the cache and start for scratch
-numEpochs = 20 # number of epochs to train the GPT+PT model
+numEpochs = 35 # number of epochs to train the GPT+PT model
 embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
 numPoints=[200,201] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
 numVars=2 # the dimenstion of input points x, if you don't know then use the maximum
@@ -220,9 +220,11 @@ if perform_gam:
             outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,i)
             for file in train_files:
                 read_json_lines_and_update_y(file, residuals, outpath)
-            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, outpath, blockSize, 1, numYs,
+            print("Done updating")
+            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, [outpath], blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
+
 
         val_data = gam_backfitting_preprocess(False, False, val_files, blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
@@ -237,7 +239,7 @@ if perform_gam:
                        numberofPoints=numPoints[1]-1, 
                        #numberofVars=numVars, # Try changing this to 1 for the purpose of training?
                        numberofVars=1, # 1 because we are training 1 variable at a time
-                       numberofYs=numYs, 
+                       numberofYs=numYs,
                        method=method,
                        variableEmbedding=variableEmbedding)
         mconf = GPTConfig(train_data.vocab_size, train_data.block_size,
@@ -245,9 +247,11 @@ if perform_gam:
                   padding_idx=train_data.paddingID)
         model = GPT(mconf, pconf)
         
-        # Loading best model after training once 
-        if os.path.exists(ckptPath_gam):
-            model.load_state_dict(torch.load(ckptPath_gam))
+        load_pre_trained = False
+        # Loading best model after training once
+        if load_pre_trained:
+            if os.path.exists(ckptPath_gam):
+                model.load_state_dict(torch.load(ckptPath_gam))
 
         
 
@@ -261,8 +265,7 @@ if perform_gam:
         # Train the model on the train data
         print("Training ==>")
         trainer = Trainer(model, train_data, val_data, tconf, bestLoss, device = device)
-        if i != 0:
-            trainer.train()
+        trainer.train()
 
         # Evaluate model on train data to get residuals and the predicted function
         print('The following model {} has been loaded!'.format(ckptPath_gam))

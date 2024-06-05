@@ -75,7 +75,7 @@ class Trainer:
             losses = []
             pbar = tqdm(enumerate(loader), total=len(loader)) if is_train else enumerate(loader)
             for it, (x, y, p, v) in pbar:
-
+                
                 # place data on the correct device
                 x = x.to(self.device) # input equation
                 y = y.to(self.device) # output equation
@@ -89,7 +89,6 @@ class Trainer:
                     losses.append(loss.item())
 
                 if is_train:
-
                     # backprop and update the parameters
                     model.zero_grad()
                     loss.backward()
