@@ -81,7 +81,7 @@ get_full_val= False
 get_full_test = False
 
 ckptPath = '{}/{}.pt'.format(addr,fName.split('.txt')[0])
-ckptPath_gam = '{}/gam/{}.pt'.format(addr,fName.split('.txt')[0])
+
 try: 
     os.mkdir(addr)
 except:
@@ -190,6 +190,12 @@ gam_path = '{}/{}/Train/gam/*.json'.format(dataDir, dataFolder)
 if perform_gam:
     additive_functions = []
     residuals = {}
+    additive_functions = {}
+    
+    # Create the keys to keep track of functions
+    for i in range in numVars:
+        additive_functions[i] = {}
+
 
     train_gam_path = '{}/{}/Train/gam/*.json'.format(dataDir, dataFolder)
     val_gam_path = '{}/{}/Val/gam/*.json'.format(dataDir, dataFolder)
@@ -200,13 +206,14 @@ if perform_gam:
 
     
 
-    for i in range(numVars):
+    for var_num in range(numVars):
+        ckptPath_gam = '{}/gam/{}_x{}.pt'.format(addr,fName.split('.txt')[0], var_num)
     # Create the Torch CharDataset
     # If not x_1 then update the next dataset with y = residuals
-        print(f"Training on x_{i}")
+        print(f"Training on x_{var_num}")
         if i == 0:
             print(f"Reading from {train_gam_path}")
-            train_files = [glob.glob(train_gam_path)[i]]
+            train_files = [glob.glob(train_gam_path)[var_num]]
             print(f"Reading file {train_files}")
             # Do similar thing with val and test
             trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, 1, numYs,
@@ -215,12 +222,14 @@ if perform_gam:
             
         else:
             print(f"Reading from {train_gam_path}")
-            train_files = [glob.glob(train_gam_path)[i]]
+            train_files = [glob.glob(train_gam_path)[var_num]]
             # update with residuals
-            outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,i)
+            outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,var_num)
             for file in train_files:
                 read_json_lines_and_update_y(file, residuals, outpath)
             print("Done updating!")
+            # Update target to be Skeleton again causing errors
+            target = "Skeleton"
             trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, [outpath], blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
@@ -282,7 +291,7 @@ if perform_gam:
             with open(fName, 'w', encoding="utf-8") as o:
                 resultDict_tr[fName] = {'SymbolicGPT':{'Error': [], 'Residuals': []}}
                 for i, batch in enumerate(loader):
-                        
+                    
                     inputs,outputs,points,variables = batch
                     print('Train Case {}.'.format(i))
                     o.write('Train Case {}/{}.\n'.format(i,len(trainText)-1))
@@ -346,6 +355,9 @@ if perform_gam:
 
                     print('Skeleton+LS:{}'.format(predicted))
 
+                    # Store the predicted function in the corresponding key/value
+                    additive_functions[var_num][i] = [predicted]
+
                     Ys_tr = [] #t['YT']
                     Yhats_tr = []
                     for xs in tr['X']:
@@ -405,6 +417,8 @@ if perform_gam:
                         Yhats_tr.append(Yhat)   
                     err = relativeErr(Ys_tr,Yhats_tr, info=True)
                     res = compute_residuals(Ys_tr,Yhats_tr, info=True)
+
+                    # Store the residuals in the dictionary
                     residuals[i] = res
 
                     if type(err) is np.complex128 or np.complex:
