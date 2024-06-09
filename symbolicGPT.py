@@ -188,14 +188,16 @@ gam_path = '{}/{}/Train/gam/*.json'.format(dataDir, dataFolder)
 
 
 if perform_gam:
-    additive_functions = []
-    residuals = {}
-    additive_functions = {}
-    
+    # Keep track of the additive functions at each time step and the actual function
+    additive_functions_tr = {}
+    actual_functions_tr = {}
+    additive_functions_test = {}
+    actual_functions_test = {}
+
     # Create the keys to keep track of functions
     for i in range in numVars:
-        additive_functions[i] = {}
-
+        additive_functions_tr[i] = {}
+        additive_functions_test[i] = {}
 
     train_gam_path = '{}/{}/Train/gam/*.json'.format(dataDir, dataFolder)
     val_gam_path = '{}/{}/Val/gam/*.json'.format(dataDir, dataFolder)
@@ -207,9 +209,14 @@ if perform_gam:
     
 
     for var_num in range(numVars):
+
+        # Keep track of residuals for each variable
+        residuals = {}
+
         ckptPath_gam = '{}/gam/{}_x{}.pt'.format(addr,fName.split('.txt')[0], var_num)
-    # Create the Torch CharDataset
-    # If not x_1 then update the next dataset with y = residuals
+
+        # Create the Torch CharDataset
+        # If not x_1 then update the next dataset with y = residuals
         print(f"Training on x_{var_num}")
         if i == 0:
             print(f"Reading from {train_gam_path}")
@@ -356,7 +363,7 @@ if perform_gam:
                     print('Skeleton+LS:{}'.format(predicted))
 
                     # Store the predicted function in the corresponding key/value
-                    additive_functions[var_num][i] = [predicted]
+                    additive_functions_tr[var_num][i] = [predicted]
 
                     Ys_tr = [] #t['YT']
                     Yhats_tr = []
@@ -389,10 +396,13 @@ if perform_gam:
                                 else:
                                     for idx in range(numVars):
                                         eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
-
+                            
+                            actual_functions_tr[var_num][i] = [eqTmp]
                             YEval = eval(eqTmp)    
                             #continue # if there is any point in the target equation that has any problem, ignore it
                             #YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+                        
+                        
                         Ys_tr.append(YEval)
                         try:
                             eqTmp = predicted + '' # copy eq
@@ -435,6 +445,9 @@ if perform_gam:
                     print('Err:{}'.format(err))
                     print('Residuals:{}'.format(res))
                     print('') # just an empty line
+            
+            # Create the 
+
             print('Avg Err:{}'.format(np.mean(resultDict_tr[fName]['SymbolicGPT'])))
         
         except KeyboardInterrupt:
@@ -517,6 +530,9 @@ if perform_gam:
 
                     print('Skeleton+LS:{}'.format(predicted))
 
+                    # Store the predicted function in the corresponding key/value
+                    additive_functions_test[var_num][i] = [predicted]
+
                     Ys = [] #t['YT']
                     Yhats = []
                     for xs in t['XT']:
@@ -546,6 +562,8 @@ if perform_gam:
                                         eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
                             continue # if there is any point in the target equation that has any problem, ignore it
                             YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+                            
+                        actual_functions_test[var_num][i] = [eqTmp]
                         Ys.append(YEval)
                         try:
                             eqTmp = predicted + '' # copy eq
@@ -587,6 +605,28 @@ if perform_gam:
         except KeyboardInterrupt:
             print('KeyboardInterrupt')
 
+    mapped_additive_functions_tr = map_additive_functions(additive_functions_tr)
+    mapped_additive_functions_test = map_additive_functions(additive_functions_test)
+    
+    mapped_actual_functions_tr = map_additive_functions(actual_functions_tr)
+    mapped_actual_functions_test = map_additive_functions(actual_functions_test)
+
+    # Choose a random idx and compare with the actual 
+    random_idx = np.random.randint(1, len(mapped_additive_functions_tr)+1)
+    
+    print(f"Train index: {random_idx}")
+    print("Additive functions")
+    print_additive_functions(mapped_additive_functions_tr, idx)
+    print("Actual functions:")
+    print_actual_functions(mapped_actual_functions_tr, idx)
+
+
+    random_idx = np.random.randint(1,len(mapped_additive_functions_test)+1)
+    print(f"Test index: {random_idx}")
+    print("Additive functions")
+    print_additive_functions(mapped_additive_functions_test, idx)
+    print("Actual function:")
+    print_actual_functions(mapped_actual_functions_test, idx)
 else:
     try:
         # create the model

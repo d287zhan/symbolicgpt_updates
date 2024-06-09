@@ -96,9 +96,48 @@ def gam_backfitting_preprocess(is_test, is_train, json_file, blockSize,
         return dataset
 
 
-    
+# Write a function to write a function to store all the predicted functions 
+def map_additive_functions(additive_functions):
 
+    combined_functions = {}
 
+    for k, v in additive_functions.items():
+        for k2,v2 in v.items():
+            if k2 not in combined_functions:
+                combined_functions[k2] = {}
+            # First key is the dataset number
+            # Keys in the value are the functions
+            combined_functions[k2][k] = v2
+        
+    return combined_functions
+
+def print_additive_functions(mapped_dict, idx):
+    data = mapped_dict[idx]
+    final_function = ""
+
+    for k, v in data.items():
+
+        # Need to replace the x_1 with its correct variable number
+        # As we are training a 1 var model each time
+        fn = v[0].lower().replace("x1", f"x{k}")
+
+        if k != len(data):
+            final_function += f"{fn} + "
+        else:
+            final_function += fn
+
+    return final_function
+
+def print_actual_functions(mapped_dict, idx):
+    data = mapped_dict[idx]
+
+    actual_functions = list(data.values())
+    # The subsequent functions at each step should match the first one
+    all_match = all(actual_functions[0][0] in sublist for sublist in actual_functions)
+    if all_match:
+        return actual_functions[0][0]
+    else:
+        raise ValueError("Not all sublists contain the same element.")
 
 
 
