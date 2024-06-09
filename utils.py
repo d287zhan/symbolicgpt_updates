@@ -427,7 +427,16 @@ class CharDataset(Dataset):
             
         # find the number of variables in the equation
         printInfoCondition = random.random() < 0.0000001
+
+        if self.target not in chunk:
+            # Handle the missing key scenario
+            print("target")
+            print(self.target)
+            print("chunk")
+            print(chunk)
+            raise KeyError(f"Key {self.target} not found in chunk. Available keys are: {chunk.keys()}")
         eq = chunk[self.target]
+
         if printInfoCondition:
             print(f'\nEquation: {eq}')
         vars = re.finditer('x[\d]+',eq) 
