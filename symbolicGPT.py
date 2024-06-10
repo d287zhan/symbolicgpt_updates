@@ -611,6 +611,20 @@ if perform_gam:
     mapped_actual_functions_tr = map_additive_functions(actual_functions_tr)
     mapped_actual_functions_test = map_additive_functions(actual_functions_test)
 
+    # Write each dictionary to a json file to store them
+    with open('mapped_additive_functions_tr.json', 'w') as file:
+        json.dump(mapped_additive_functions_tr, file)
+
+    with open('mapped_additive_functions_test.json', 'w') as file:
+        json.dump(mapped_additive_functions_test, file)
+    
+    with open('mapped_actual_functions_tr.json', 'w') as file:
+        json.dump(mapped_actual_functions_tr, file)
+
+    with open('mapped_actual_functions_test.json', 'w') as file:
+        json.dump(mapped_actual_functions_test, file)
+
+
     # Choose a random idx and compare with the actual 
     random_idx = np.random.randint(1, len(mapped_additive_functions_tr)+1)
     
