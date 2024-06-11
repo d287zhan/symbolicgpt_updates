@@ -39,7 +39,7 @@ set_seed(42)
 # config
 device='gpu'
 scratch=True # if you want to ignore the cache and start for scratch
-numEpochs = 35 # number of epochs to train the GPT+PT model
+numEpochs = 20 # number of epochs to train the GPT+PT model
 embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
 numPoints=[200,201] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
 numVars=2 # the dimenstion of input points x, if you don't know then use the maximum
@@ -195,9 +195,11 @@ if perform_gam:
     actual_functions_test = {}
 
     # Create the keys to keep track of functions
-    for i in range in numVars:
+    for i in range(numVars):
         additive_functions_tr[i] = {}
         additive_functions_test[i] = {}
+        actual_functions_tr[i] = {}
+        actual_functions_test[i] = {}
 
     train_gam_path = '{}/{}/Train/gam/*.json'.format(dataDir, dataFolder)
     val_gam_path = '{}/{}/Val/gam/*.json'.format(dataDir, dataFolder)
@@ -218,7 +220,7 @@ if perform_gam:
         # Create the Torch CharDataset
         # If not x_1 then update the next dataset with y = residuals
         print(f"Training on x_{var_num}")
-        if i == 0:
+        if var_num == 0:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[var_num]]
             print(f"Reading file {train_files}")
@@ -265,15 +267,24 @@ if perform_gam:
         
         load_pre_trained = False
         # Loading best model after training once
-        if load_pre_trained:
-            if os.path.exists(ckptPath_gam):
-                model.load_state_dict(torch.load(ckptPath_gam))
 
-        tconf = TrainerConfig(max_epochs=1, batch_size=batchSize, 
-                      learning_rate=6e-4,
-                      lr_decay=True, warmup_tokens=512*20, 
-                      final_tokens=2*len(train_data)*blockSize,
-                      num_workers=0, ckpt_path=ckptPath_gam)
+        if var_num == 0:
+            load_pre_trained = True
+            if load_pre_trained:
+                if os.path.exists(ckptPath_gam):
+                    model.load_state_dict(torch.load(ckptPath_gam))
+
+            tconf = TrainerConfig(max_epochs = 1, batch_size=batchSize, 
+                        learning_rate=6e-4,
+                        lr_decay=True, warmup_tokens=512*20, 
+                        final_tokens=2*len(train_data)*blockSize,
+                        num_workers=0, ckpt_path=ckptPath_gam)
+        else:
+            tconf = TrainerConfig(max_epochs = numEpochs, batch_size=batchSize, 
+                        learning_rate=6e-4,
+                        lr_decay=True, warmup_tokens=512*20, 
+                        final_tokens=2*len(train_data)*blockSize,
+                        num_workers=0, ckpt_path=ckptPath_gam)
         
         # Train the model on the train data
         print("Training ==>")
@@ -294,316 +305,316 @@ if perform_gam:
         
         resultDict_tr = {}
         # Compute Residuals
-        try:
-            with open(fName, 'w', encoding="utf-8") as o:
-                resultDict_tr[fName] = {'SymbolicGPT':{'Error': [], 'Residuals': []}}
-                for i, batch in enumerate(loader):
-                    
-                    inputs,outputs,points,variables = batch
-                    print('Train Case {}.'.format(i))
-                    o.write('Train Case {}/{}.\n'.format(i,len(trainText)-1))
+        if var_num != (numVars - 1):
+            try:
+                with open(fName, 'w', encoding="utf-8") as o:
+                    resultDict_tr[fName] = {'SymbolicGPT':{'Error': [], 'Residuals': []}}
+                    for i, batch in enumerate(loader):
+                        
+                        inputs,outputs,points,variables = batch
+                        print('Train Case {}.'.format(i))
+                        o.write('Train Case {}/{}.\n'.format(i,len(trainText)-1))
 
-                    tr = json.loads(trainText[i])
-                    inputs = inputs[:,0:1].to(trainer.device)
-                    points = points.to(trainer.device)
-                    variables = variables.to(trainer.device)
-                    outputsHat = sample_from_model(
-                                model, 
-                                inputs, 
-                                blockSize, 
-                                points=points,
-                                variables=variables,
-                                temperature=1.0, 
-                                sample=True, 
-                                top_k=0.0,
-                                top_p=0.7)[0]
+                        tr = json.loads(trainText[i])
+                        inputs = inputs[:,0:1].to(trainer.device)
+                        points = points.to(trainer.device)
+                        variables = variables.to(trainer.device)
+                        outputsHat = sample_from_model(
+                                    model, 
+                                    inputs, 
+                                    blockSize, 
+                                    points=points,
+                                    variables=variables,
+                                    temperature=1.0, 
+                                    sample=True, 
+                                    top_k=0.0,
+                                    top_p=0.7)[0]
 
 
 
-                    # filter out predicted
-                    target = ''.join([train_data.itos[int(i)] for i in outputs[0]])
-                    predicted = ''.join([train_data.itos[int(i)] for i in outputsHat])
+                        # filter out predicted
+                        target = ''.join([train_data.itos[int(i)] for i in outputs[0]])
+                        predicted = ''.join([train_data.itos[int(i)] for i in outputsHat])
 
-                    if variableEmbedding == 'STR_VAR':
-                        target = target.split(':')[-1]
-                        predicted = predicted.split(':')[-1]
+                        if variableEmbedding == 'STR_VAR':
+                            target = target.split(':')[-1]
+                            predicted = predicted.split(':')[-1]
 
-                    target = target.strip(train_data.paddingToken).split('>')
-                    target = target[0] #if len(target[0])>=1 else target[1]
-                    target = target.strip('<').strip(">")
-                    predicted = predicted.strip(train_data.paddingToken).split('>')
-                    predicted = predicted[0] #if len(predicted[0])>=1 else predicted[1]
-                    predicted = predicted.strip('<').strip(">")
-                    
-                    print('Target:{}\nSkeleton:{}'.format(target, predicted))
-                    
-                    o.write('{}\n'.format(target))
-                    o.write('{}:\n'.format('SymbolicGPT'))
-                    o.write('{}\n'.format(predicted))
+                        target = target.strip(train_data.paddingToken).split('>')
+                        target = target[0] #if len(target[0])>=1 else target[1]
+                        target = target.strip('<').strip(">")
+                        predicted = predicted.strip(train_data.paddingToken).split('>')
+                        predicted = predicted[0] #if len(predicted[0])>=1 else predicted[1]
+                        predicted = predicted.strip('<').strip(">")
+                        
+                        print('Target:{}\nSkeleton:{}'.format(target, predicted))
+                        
+                        o.write('{}\n'.format(target))
+                        o.write('{}:\n'.format('SymbolicGPT'))
+                        o.write('{}\n'.format(predicted))
 
-                    # train a regressor to find the constants (too slow)
-                    c = [1.0 for i,x in enumerate(predicted) if x=='C'] # initialize coefficients as 1
-                    # c[-1] = 0 # initialize the constant as zero
-                    b = [(-2,2) for i,x in enumerate(predicted) if x=='C']  # bounds on variables
-                    try:
-                        if len(c) != 0:
-                            # This is the bottleneck in our algorithm
-                            # for easier comparison, we are using minimize package  
-                            cHat = minimize(lossFunc, c, #bounds=b,
-                                        args=(predicted, tr['X'], tr['Y'])) 
-                            
-                            predicted = predicted.replace('C','{}').format(*cHat.x)
-                    except ValueError:
-                        raise 'Err: Wrong Equation {}'.format(predicted)
-                    except Exception as e:
-                        raise 'Err: Wrong Equation {}, Err: {}'.format(predicted, e)
-
-                    # TODO: let's enjoy GPU
-
-                    print('Skeleton+LS:{}'.format(predicted))
-
-                    # Store the predicted function in the corresponding key/value
-                    additive_functions_tr[var_num][i] = [predicted]
-
-                    Ys_tr = [] #t['YT']
-                    Yhats_tr = []
-                    for xs in tr['X']:
+                        # train a regressor to find the constants (too slow)
+                        c = [1.0 for i,x in enumerate(predicted) if x=='C'] # initialize coefficients as 1
+                        # c[-1] = 0 # initialize the constant as zero
+                        b = [(-2,2) for i,x in enumerate(predicted) if x=='C']  # bounds on variables
                         try:
-                            eqTmp = target + '' # copy eq
-                            eqTmp = eqTmp.replace(' ','')
-                            eqTmp = eqTmp.replace('\n','')
-                            for i,x in enumerate(xs):
-                                # replace xi with the value in the eq
-                                if not perform_gam:
-                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
-                                else:
-                                    for idx in range(numVars):
-                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
-                                if ',' in eqTmp:
-                                    assert 'There is a , in the equation!'
-                            YEval = eval(eqTmp)
-                            # YEval = 0 if np.isnan(YEval) else YEval
-                            # YEval = 100 if np.isinf(YEval) else YEval
-                        except:
-                            print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
-                            print("Utilizing EQ from data")
-                            eqTmp = tr['EQ']
-                            eqTmp = eqTmp.replace(' ','')
-                            eqTmp = eqTmp.replace('\n','')
-                            for i,x in enumerate(xs):
-                                if not perform_gam:
-                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
-                                else:
-                                    for idx in range(numVars):
-                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+                            if len(c) != 0:
+                                # This is the bottleneck in our algorithm
+                                # for easier comparison, we are using minimize package  
+                                cHat = minimize(lossFunc, c, #bounds=b,
+                                            args=(predicted, tr['X'], tr['Y'])) 
+                                
+                                predicted = predicted.replace('C','{}').format(*cHat.x)
+                        except ValueError:
+                            raise 'Err: Wrong Equation {}'.format(predicted)
+                        except Exception as e:
+                            raise 'Err: Wrong Equation {}, Err: {}'.format(predicted, e)
+
+                        # TODO: let's enjoy GPU
+
+                        print('Skeleton+LS:{}'.format(predicted))
+
+                        # Store the predicted function in the corresponding key/value
+                        additive_functions_tr[var_num][i] = [predicted]
+
+                        Ys_tr = [] #t['YT']
+                        Yhats_tr = []
+                        for xs in tr['X']:
+                            try:
+                                eqTmp = target + '' # copy eq
+                                eqTmp = eqTmp.replace(' ','')
+                                eqTmp = eqTmp.replace('\n','')
+                                for i,x in enumerate(xs):
+                                    # replace xi with the value in the eq
+                                    if not perform_gam:
+                                        eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                    else:
+                                        for idx in range(numVars):
+                                            eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+                                    if ',' in eqTmp:
+                                        assert 'There is a , in the equation!'
+                                YEval = eval(eqTmp)
+                                # YEval = 0 if np.isnan(YEval) else YEval
+                                # YEval = 100 if np.isinf(YEval) else YEval
+                            except:
+                                print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                                print("Utilizing EQ from data")
+                                eqTmp = tr['EQ']
+                                eqTmp = eqTmp.replace(' ','')
+                                eqTmp = eqTmp.replace('\n','')
+                                for i,x in enumerate(xs):
+                                    if not perform_gam:
+                                        eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                    else:
+                                        for idx in range(numVars):
+                                            eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+                                
+                                actual_functions_tr[var_num][i] = [eqTmp]
+                                YEval = eval(eqTmp)    
+                                #continue # if there is any point in the target equation that has any problem, ignore it
+                                #YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
                             
-                            actual_functions_tr[var_num][i] = [eqTmp]
-                            YEval = eval(eqTmp)    
-                            #continue # if there is any point in the target equation that has any problem, ignore it
-                            #YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+                            
+                            Ys_tr.append(YEval)
+                            try:
+                                eqTmp = predicted + '' # copy eq
+                                eqTmp = eqTmp.replace(' ','')
+                                eqTmp = eqTmp.replace('\n','')
+                                for i,x in enumerate(xs):
+                                    # replace xi with the value in the eq
+                                    if not perform_gam:
+                                        eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                    else:
+                                        for idx in range(numVars):
+                                            eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+
+                                    if ',' in eqTmp:
+                                        assert 'There is a , in the equation!'
+                                Yhat = eval(eqTmp)
+                                # Yhat = 0 if np.isnan(Yhat) else Yhat
+                                # Yhat = 100 if np.isinf(Yhat) else Yhat
+                            except:
+                                print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                                Yhat = 100
+                            Yhats_tr.append(Yhat)   
+                        err = relativeErr(Ys_tr,Yhats_tr, info=True)
+                        res = compute_residuals(Ys_tr,Yhats_tr, info=True)
+
+                        # Store the residuals in the dictionary
+                        residuals[i] = res
+
+                        if type(err) is np.complex128 or np.complex:
+                            err = abs(err.real)
+
+                        resultDict_tr[fName]['SymbolicGPT']['Error'].append(err)
+                        resultDict_tr[fName]['SymbolicGPT']['Residuals'].append(res)
                         
-                        
-                        Ys_tr.append(YEval)
-                        try:
-                            eqTmp = predicted + '' # copy eq
-                            eqTmp = eqTmp.replace(' ','')
-                            eqTmp = eqTmp.replace('\n','')
-                            for i,x in enumerate(xs):
-                                # replace xi with the value in the eq
-                                if not perform_gam:
-                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
-                                else:
-                                    for idx in range(numVars):
-                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+                        o.write('{}\n{}\n\n'.format( 
+                                                predicted,
+                                                err
+                                                ))
 
-                                if ',' in eqTmp:
-                                    assert 'There is a , in the equation!'
-                            Yhat = eval(eqTmp)
-                            # Yhat = 0 if np.isnan(Yhat) else Yhat
-                            # Yhat = 100 if np.isinf(Yhat) else Yhat
-                        except:
-                            print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
-                            Yhat = 100
-                        Yhats_tr.append(Yhat)   
-                    err = relativeErr(Ys_tr,Yhats_tr, info=True)
-                    res = compute_residuals(Ys_tr,Yhats_tr, info=True)
-
-                    # Store the residuals in the dictionary
-                    residuals[i] = res
-
-                    if type(err) is np.complex128 or np.complex:
-                        err = abs(err.real)
-
-                    resultDict_tr[fName]['SymbolicGPT']['Error'].append(err)
-                    resultDict_tr[fName]['SymbolicGPT']['Residuals'].append(res)
-                    
-                    o.write('{}\n{}\n\n'.format( 
-                                            predicted,
-                                            err
-                                            ))
-
-                    print('Err:{}'.format(err))
-                    print('Residuals:{}'.format(res))
-                    print('') # just an empty line
-            
-            # Create the 
-
-            print('Avg Err:{}'.format(np.mean(resultDict_tr[fName]['SymbolicGPT'])))
-        
-        except KeyboardInterrupt:
-            print('KeyboardInterrupt')
-
-        loader2 = torch.utils.data.DataLoader(
-                                test_data, 
-                                shuffle=False, 
-                                pin_memory=True,
-                                batch_size=1,
-                                num_workers=0)
-
-
-        resultDict = {}
-        try:
-            with open(fName, 'w', encoding="utf-8") as o:
-                resultDict[fName] = {'SymbolicGPT':{'Error': [], 'Residuals':[]}}
-
-                for i, batch in enumerate(loader2):
-                        
-                    inputs,outputs,points,variables = batch
-
-                    print('Test Case {}.'.format(i))
-                    o.write('Test Case {}/{}.\n'.format(i,len(textTest)-1))
-
-                    t = json.loads(textTest[i])
-                    inputs = inputs[:,0:1].to(trainer.device)
-                    points = points.to(trainer.device)
-                    variables = variables.to(trainer.device)
-                    outputsHat = sample_from_model(
-                                model, 
-                                inputs, 
-                                blockSize, 
-                                points=points,
-                                variables=variables,
-                                temperature=1.0, 
-                                sample=True, 
-                                top_k=0.0,
-                                top_p=0.7)[0]
-
-                    # filter out predicted
-                    target = ''.join([train_data.itos[int(i)] for i in outputs[0]])
-                    predicted = ''.join([train_data.itos[int(i)] for i in outputsHat])
-
-                    if variableEmbedding == 'STR_VAR':
-                        target = target.split(':')[-1]
-                        predicted = predicted.split(':')[-1]
-
-                    target = target.strip(train_data.paddingToken).split('>')
-                    target = target[0] #if len(target[0])>=1 else target[1]
-                    target = target.strip('<').strip(">")
-                    predicted = predicted.strip(train_data.paddingToken).split('>')
-                    predicted = predicted[0] #if len(predicted[0])>=1 else predicted[1]
-                    predicted = predicted.strip('<').strip(">")
-                    
-                    print('Target:{}\nSkeleton:{}'.format(target, predicted))
-                    
-                    o.write('{}\n'.format(target))
-                    o.write('{}:\n'.format('SymbolicGPT'))
-                    o.write('{}\n'.format(predicted))
-
-                    # train a regressor to find the constants (too slow)
-                    c = [1.0 for i,x in enumerate(predicted) if x=='C'] # initialize coefficients as 1
-                    # c[-1] = 0 # initialize the constant as zero
-                    b = [(-2,2) for i,x in enumerate(predicted) if x=='C']  # bounds on variables
-                    try:
-                        if len(c) != 0:
-                            # This is the bottleneck in our algorithm
-                            # for easier comparison, we are using minimize package  
-                            cHat = minimize(lossFunc, c, #bounds=b,
-                                        args=(predicted, t['X'], t['Y'])) 
+                        print('Err:{}'.format(err))
+                        print('Residuals:{}'.format(res))
+                        print('') # just an empty line
                 
-                            predicted = predicted.replace('C','{}').format(*cHat.x)
-                    except ValueError:
-                        raise 'Err: Wrong Equation {}'.format(predicted)
-                    except Exception as e:
-                        raise 'Err: Wrong Equation {}, Err: {}'.format(predicted, e)
 
-                    # TODO: let's enjoy GPU
+                print('Avg Err:{}'.format(np.mean(resultDict_tr[fName]['SymbolicGPT'])))
+            
+            except KeyboardInterrupt:
+                print('KeyboardInterrupt')
+        else:
+            loader2 = torch.utils.data.DataLoader(
+                                    test_data, 
+                                    shuffle=False, 
+                                    pin_memory=True,
+                                    batch_size=1,
+                                    num_workers=0)
 
-                    print('Skeleton+LS:{}'.format(predicted))
 
-                    # Store the predicted function in the corresponding key/value
-                    additive_functions_test[var_num][i] = [predicted]
+            resultDict = {}
+            try:
+                with open(fName, 'w', encoding="utf-8") as o:
+                    resultDict[fName] = {'SymbolicGPT':{'Error': [], 'Residuals':[]}}
 
-                    Ys = [] #t['YT']
-                    Yhats = []
-                    for xs in t['XT']:
-                        try:
-                            eqTmp = target + '' # copy eq
-                            eqTmp = eqTmp.replace(' ','')
-                            eqTmp = eqTmp.replace('\n','')
-                            for i,x in enumerate(xs):
-                                # replace xi with the value in the eq
-                                eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
-                                if ',' in eqTmp:
-                                    assert 'There is a , in the equation!'
-                            YEval = eval(eqTmp)
-                            # YEval = 0 if np.isnan(YEval) else YEval
-                            # YEval = 100 if np.isinf(YEval) else YEval
-                        except:
-                            print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
-                            print("Utilizing EQ from data")
-                            eqTmp = t['EQ']
-                            eqTmp = eqTmp.replace(' ','')
-                            eqTmp = eqTmp.replace('\n','')
-                            for i,x in enumerate(xs):
-                                if not perform_gam:
-                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
-                                else:
-                                    for idx in range(numVars):
-                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
-                            continue # if there is any point in the target equation that has any problem, ignore it
-                            YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+                    for i, batch in enumerate(loader2):
                             
-                        actual_functions_test[var_num][i] = [eqTmp]
-                        Ys.append(YEval)
+                        inputs,outputs,points,variables = batch
+
+                        print('Test Case {}.'.format(i))
+                        o.write('Test Case {}/{}.\n'.format(i,len(textTest)-1))
+
+                        t = json.loads(textTest[i])
+                        inputs = inputs[:,0:1].to(trainer.device)
+                        points = points.to(trainer.device)
+                        variables = variables.to(trainer.device)
+                        outputsHat = sample_from_model(
+                                    model, 
+                                    inputs, 
+                                    blockSize, 
+                                    points=points,
+                                    variables=variables,
+                                    temperature=1.0, 
+                                    sample=True, 
+                                    top_k=0.0,
+                                    top_p=0.7)[0]
+
+                        # filter out predicted
+                        target = ''.join([train_data.itos[int(i)] for i in outputs[0]])
+                        predicted = ''.join([train_data.itos[int(i)] for i in outputsHat])
+
+                        if variableEmbedding == 'STR_VAR':
+                            target = target.split(':')[-1]
+                            predicted = predicted.split(':')[-1]
+
+                        target = target.strip(train_data.paddingToken).split('>')
+                        target = target[0] #if len(target[0])>=1 else target[1]
+                        target = target.strip('<').strip(">")
+                        predicted = predicted.strip(train_data.paddingToken).split('>')
+                        predicted = predicted[0] #if len(predicted[0])>=1 else predicted[1]
+                        predicted = predicted.strip('<').strip(">")
+                        
+                        print('Target:{}\nSkeleton:{}'.format(target, predicted))
+                        
+                        o.write('{}\n'.format(target))
+                        o.write('{}:\n'.format('SymbolicGPT'))
+                        o.write('{}\n'.format(predicted))
+
+                        # train a regressor to find the constants (too slow)
+                        c = [1.0 for i,x in enumerate(predicted) if x=='C'] # initialize coefficients as 1
+                        # c[-1] = 0 # initialize the constant as zero
+                        b = [(-2,2) for i,x in enumerate(predicted) if x=='C']  # bounds on variables
                         try:
-                            eqTmp = predicted + '' # copy eq
-                            eqTmp = eqTmp.replace(' ','')
-                            eqTmp = eqTmp.replace('\n','')
-                            for i,x in enumerate(xs):
-                                # replace xi with the value in the eq
-                                eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
-                                if ',' in eqTmp:
-                                    assert 'There is a , in the equation!'
-                            Yhat = eval(eqTmp)
-                            # Yhat = 0 if np.isnan(Yhat) else Yhat
-                            # Yhat = 100 if np.isinf(Yhat) else Yhat
-                        except:
-                            print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
-                            Yhat = 100
-                        Yhats.append(Yhat)
-                    err = relativeErr(Ys,Yhats, info=True)
-                    # Don't need to compute residuals on test set
-                    # res = compute_residuals(Ys,Yhats, info=True)
-
-                    if type(err) is np.complex128 or np.complex:
-                        err = abs(err.real)
-
-                    resultDict[fName]['SymbolicGPT']['Error'].append(err)
-                    #resultDict[fName]['SymbolicGPT']['Residuals'].append(res)
+                            if len(c) != 0:
+                                # This is the bottleneck in our algorithm
+                                # for easier comparison, we are using minimize package  
+                                cHat = minimize(lossFunc, c, #bounds=b,
+                                            args=(predicted, t['X'], t['Y'])) 
                     
-                    o.write('{}\n{}\n\n'.format( 
-                                            predicted,
-                                            err
-                                            #res
-                                            ))
+                                predicted = predicted.replace('C','{}').format(*cHat.x)
+                        except ValueError:
+                            raise 'Err: Wrong Equation {}'.format(predicted)
+                        except Exception as e:
+                            raise 'Err: Wrong Equation {}, Err: {}'.format(predicted, e)
 
-                    print('Err:{}'.format(err))
-                    #print('Residuals:{}'.format(res))
-                    print('') # just an empty line
-            print('Avg Err:{}'.format(np.mean(resultDict[fName]['SymbolicGPT'])))
-        
-        except KeyboardInterrupt:
-            print('KeyboardInterrupt')
+                        # TODO: let's enjoy GPU
+
+                        print('Skeleton+LS:{}'.format(predicted))
+
+                        # Store the predicted function in the corresponding key/value
+                        additive_functions_test[var_num][i] = [predicted]
+
+                        Ys = [] #t['YT']
+                        Yhats = []
+                        for xs in t['XT']:
+                            try:
+                                eqTmp = target + '' # copy eq
+                                eqTmp = eqTmp.replace(' ','')
+                                eqTmp = eqTmp.replace('\n','')
+                                for i,x in enumerate(xs):
+                                    # replace xi with the value in the eq
+                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                    if ',' in eqTmp:
+                                        assert 'There is a , in the equation!'
+                                YEval = eval(eqTmp)
+                                # YEval = 0 if np.isnan(YEval) else YEval
+                                # YEval = 100 if np.isinf(YEval) else YEval
+                            except:
+                                print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                                print("Utilizing EQ from data")
+                                eqTmp = t['EQ']
+                                eqTmp = eqTmp.replace(' ','')
+                                eqTmp = eqTmp.replace('\n','')
+                                for i,x in enumerate(xs):
+                                    if not perform_gam:
+                                        eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                    else:
+                                        for idx in range(numVars):
+                                            eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+                                continue # if there is any point in the target equation that has any problem, ignore it
+                                YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+                                
+                            actual_functions_test[var_num][i] = [eqTmp]
+                            Ys.append(YEval)
+                            try:
+                                eqTmp = predicted + '' # copy eq
+                                eqTmp = eqTmp.replace(' ','')
+                                eqTmp = eqTmp.replace('\n','')
+                                for i,x in enumerate(xs):
+                                    # replace xi with the value in the eq
+                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                    if ',' in eqTmp:
+                                        assert 'There is a , in the equation!'
+                                Yhat = eval(eqTmp)
+                                # Yhat = 0 if np.isnan(Yhat) else Yhat
+                                # Yhat = 100 if np.isinf(Yhat) else Yhat
+                            except:
+                                print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                                Yhat = 100
+                            Yhats.append(Yhat)
+                        err = relativeErr(Ys,Yhats, info=True)
+                        # Don't need to compute residuals on test set
+                        # res = compute_residuals(Ys,Yhats, info=True)
+
+                        if type(err) is np.complex128 or np.complex:
+                            err = abs(err.real)
+
+                        resultDict[fName]['SymbolicGPT']['Error'].append(err)
+                        #resultDict[fName]['SymbolicGPT']['Residuals'].append(res)
+                        
+                        o.write('{}\n{}\n\n'.format( 
+                                                predicted,
+                                                err
+                                                #res
+                                                ))
+
+                        print('Err:{}'.format(err))
+                        #print('Residuals:{}'.format(res))
+                        print('') # just an empty line
+                print('Avg Err:{}'.format(np.mean(resultDict[fName]['SymbolicGPT'])))
+            
+            except KeyboardInterrupt:
+                print('KeyboardInterrupt')
 
     mapped_additive_functions_tr = map_additive_functions(additive_functions_tr)
     mapped_additive_functions_test = map_additive_functions(additive_functions_test)
