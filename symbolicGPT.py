@@ -214,6 +214,8 @@ if perform_gam:
 
         # Keep track of residuals for each variable
         residuals = {}
+        # Keep track of the number of residuals we have
+        residual_count = 0
 
         ckptPath_gam = '{}/gam/{}_x{}.pt'.format(addr,fName.split('.txt')[0], var_num)
 
@@ -442,6 +444,8 @@ if perform_gam:
 
                         # Store the residuals in the dictionary
                         residuals[i] = res
+                        residual_count += 1
+                        print(f"We have {residual_count} residuals computed")
 
                         if type(err) is np.complex128 or np.complex:
                             err = abs(err.real)
