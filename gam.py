@@ -34,18 +34,13 @@ def read_json_lines_and_update_y(file_path, residuals, out_path):
         with open(out_path, 'w') as output_file:
             for line_number, line in enumerate(file, start=1):
                 updated_data = {}
-                if (line_number -1) in residuals.keys():
-                    updated_data["Y"] = residuals[line_number-1].tolist()
-                else:
-                    # Leave it out of the residual replacement and 
-                    # Keep only what we computed residuals on
-                    continue
                 data = json.loads(line)
                 updated_data["X"] = data["X"]
                 if (line_number -1) in residuals.keys():
                     updated_data["Y"] = residuals[line_number-1].tolist()
                 else:
                     updated_data["Y"] = data["Y"]
+                    #continue
                 updated_data["EQ"] = data["EQ"]
                 updated_data["Skeleton"] = data["Skeleton"]
 

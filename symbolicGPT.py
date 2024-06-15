@@ -216,6 +216,8 @@ if perform_gam:
         
         # Keep track of the number of residuals we have
         residual_count = 0
+        test_count = 100
+        train_count = 10000
 
         ckptPath_gam = '{}/gam/{}_x{}.pt'.format(addr,fName.split('.txt')[0], var_num)
 
@@ -290,9 +292,10 @@ if perform_gam:
         
         # Train the model on the train data
         print("Training ==>")
-        trainer = Trainer(model, train_data, val_data, tconf, bestLoss, device = device)
-        trainer.train()
 
+        trainer = Trainer(model, train_data, val_data, tconf, bestLoss, device = device)
+        if var_num != 0:
+            trainer.train()
         # Evaluate model on train data to get residuals and the predicted function
         print('The following model {} has been loaded!'.format(ckptPath_gam))
         model.load_state_dict(torch.load(ckptPath_gam))
