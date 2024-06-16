@@ -447,6 +447,12 @@ if perform_gam:
 
                         # Store the residuals in the dictionary
                         residuals[i] = res
+
+                        # Store intermediate residuals
+                        residual_path_train_gam = '{}/{}/Train/gam/residuals/residuals.json'.format(dataDir, dataFolder)
+                        with open(residual_path_train_gam, "w") as residual_file:
+                            json.dump(residuals, residual_file)
+                            
                         residual_count += 1
                         print(f"We have {residual_count} residuals computed")
 
