@@ -252,7 +252,6 @@ if perform_gam:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[var_num]]
             train_files2 = [glob.glob(single_eval_path)[var_num]]
-            print("Here")
             print(train_files2)
             # update with residuals
             outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,var_num)
