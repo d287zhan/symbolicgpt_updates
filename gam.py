@@ -37,7 +37,7 @@ def read_json_lines_and_update_y(file_path, residuals, out_path):
                 data = json.loads(line)
                 updated_data["X"] = data["X"]
                 if (line_number -1) in residuals.keys():
-                    updated_data["Y"] = residuals[line_number-1].tolist()
+                    updated_data["Y"] = residuals[line_number-1]
                 else:
                     updated_data["Y"] = data["Y"]
                     #continue
@@ -65,6 +65,28 @@ def create_gam_datasets(is_train ,dataset_path, write_path, VarNum):
     for file in files:
         print(f"Extracting from {file}")
         read_json_lines_and_write(file, write_path, VarNum, is_train)
+
+
+def update_json_line(file_path, i, update_func, update_val):
+    # Step 1: Read the JSON file line by line
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+    
+    # Step 2: Update the i-th dictionary
+    if 0 <= i < len(lines):
+        data = json.loads(lines[i].strip())
+        updated_data = update_func(data, update_val)
+        lines[i] = json.dumps(updated_data) + '\n'
+    else:
+        print(f"Line {i} is out of range.")
+    
+    # Step 3: Write the updated dictionaries back to the file
+    with open(file_path, 'w') as file:
+        file.writelines(lines)
+
+def update_y(data, res):
+    data["Y"] = res
+    return data
 
 
 def gam_backfitting_preprocess(is_test, is_train, json_file, blockSize, 

@@ -430,11 +430,12 @@ class CharDataset(Dataset):
 
         if self.target not in chunk:
             # Handle the missing key scenario
-            print("target")
-            print(self.target)
             print("chunk")
             print(chunk)
             raise KeyError(f"Key {self.target} not found in chunk. Available keys are: {chunk.keys()}")
+        else:
+            print("target")
+            print(self.target)
         eq = chunk[self.target]
 
         if printInfoCondition:

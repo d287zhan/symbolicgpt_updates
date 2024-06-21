@@ -96,7 +96,7 @@ if os.path.isfile(train_file) and not scratch:
 else:
     # process training files from scratch
     path = '{}/{}/Train/*.json'.format(dataDir, dataFolder)
-    
+    eval_single_path = '{}/{}/Train/test.json'.format(dataDir, dataFolder)
     # Break it down to only one covariate at a time
     # In order of data x1,x2,.., xn, y for the shape of points
     if perform_gam:
@@ -104,6 +104,10 @@ else:
             print(f"Creating dataset for x_{i}")
             outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset.json'.format(dataDir, dataFolder,numVars,i)
             create_gam_datasets( True, path, outpath, i)
+
+            outpath_2 = '{}/{}/Train/gam/single_eval/{}_vars_x_{}_dataset_test.json'.format(dataDir, dataFolder,numVars,i)
+            create_gam_datasets( True,eval_single_path, outpath_2, i)
+
     if get_full_train:
         files = glob.glob(path)[:maxNumFiles]
         text = processDataFiles(files)
@@ -205,13 +209,17 @@ if perform_gam:
     val_gam_path = '{}/{}/Val/gam/*.json'.format(dataDir, dataFolder)
     test_gam_path = '{}/{}/Test/gam/*.json'.format(dataDir, dataFolder)
     
+    single_eval_path = '{}/{}/Train/gam/single_eval/*.json'.format(dataDir, dataFolder)
+
     val_files = glob.glob(val_gam_path)
     test_files = glob.glob(test_gam_path)
 
     residuals = {}
-
+    single_residuals = {}
+    single_dataset_functions =[]
+    skeleton_predicted = []
     for var_num in range(numVars):
-
+        print(single_dataset_functions)
         # Keep track of residuals for each variable
         
         # Keep track of the number of residuals we have
@@ -227,26 +235,37 @@ if perform_gam:
         if var_num == 0:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[var_num]]
+            train_files2 = [glob.glob(single_eval_path)[var_num]]
             print(f"Reading file {train_files}")
             # Do similar thing with val and test
             trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
             
+            # Evaluating single dataset
+
+            trainText2, train_chars2, train_data2 = gam_backfitting_preprocess(False, True, train_files2, blockSize, 1, numYs,
+                                                    numPoints, target, addVars, const_range, 
+                                                    trainRange, decimals, None)
+            
         else:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[var_num]]
+            train_files2 = [glob.glob(single_eval_path)[var_num]]
+            print("Here")
+            print(train_files2)
             # update with residuals
             outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,var_num)
-            for file in train_files:
-                read_json_lines_and_update_y(file, residuals, outpath)
+            outpath_2 = '{}/{}/Train/gam/single_eval/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,var_num)
+            for file in train_files2:
+                read_json_lines_and_update_y(file, single_residuals, outpath_2)
             print("Done updating!")
-            # Update target to be Skeleton again causing errors
+            #Update target to be Skeleton again causing errors
             target = "Skeleton"
-            trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, [outpath], blockSize, 1, numYs,
+            trainText2, train_chars2, train_data2 = gam_backfitting_preprocess(False, True, [outpath_2], blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, None)
-
+            
 
         val_data = gam_backfitting_preprocess(False, False, val_files, blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
@@ -256,6 +275,7 @@ if perform_gam:
                                                     numPoints, target, addVars, const_range, 
                                                     trainRange, decimals, train_chars)
         
+
         # Instantiate the model
         pconf = PointNetConfig(embeddingSize=embeddingSize, 
                        numberofPoints=numPoints[1]-1, 
@@ -291,15 +311,192 @@ if perform_gam:
                         num_workers=0, ckpt_path=ckptPath_gam)
         
         # Train the model on the train data
-        print("Training ==>")
-
-        trainer = Trainer(model, train_data, val_data, tconf, bestLoss, device = device)
-        if var_num != 0:
-            trainer.train()
+        # print("Training ==>")
+        # if not os.path.exists(ckptPath):
+        #     trainer = Trainer(model, train_data, val_data, tconf, bestLoss, device = device)
+        #     trainer.train()
         # Evaluate model on train data to get residuals and the predicted function
-        print('The following model {} has been loaded!'.format(ckptPath_gam))
-        model.load_state_dict(torch.load(ckptPath_gam))
+        # print('The following model {} has been loaded!'.format(ckptPath_gam))
+        pre_trained_path = "./SavedModels//XYE_1Var_30-31Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"        
+        
+        print('The following model {} has been loaded!'.format(pre_trained_path))
+        trainer = Trainer(model, train_data2, val_data, tconf, bestLoss, device = device)
+        model.load_state_dict(torch.load(pre_trained_path))
         model = model.eval().to(trainer.device)
+
+        # Evaluate a single point
+        loader_eval = torch.utils.data.DataLoader(
+                                train_data2, 
+                                shuffle=False, 
+                                pin_memory=True,
+                                batch_size=1,
+                                num_workers=0)
+        resultDict_tr = {}
+        try:
+            with open(fName, 'w', encoding="utf-8") as o:
+                resultDict_tr[fName] = {'SymbolicGPT':{'Error': [], 'Residuals': []}}
+                train_idx = 0
+                for i, batch in enumerate(loader_eval):
+
+                    inputs,outputs,points,variables = batch
+                    # print(inputs)
+                    # print(outputs)
+                    # print(points)
+                    # print(variables)
+                    # print(wow)
+
+                    print('Train Case {}.'.format(i))
+                    o.write('Train Case {}/{}.\n'.format(i,len(trainText2)-1))
+
+
+
+                    tr = json.loads(trainText2[i])
+                    inputs = inputs[:,0:1].to(trainer.device)
+                    points = points.to(trainer.device)
+                    variables = variables.to(trainer.device)
+                    outputsHat = sample_from_model(
+                                model, 
+                                inputs, 
+                                blockSize, 
+                                points=points,
+                                variables=variables,
+                                temperature=1.0, 
+                                sample=True, 
+                                top_k=0.0,
+                                top_p=0.7)[0]
+
+
+                    # filter out predicted
+                    target = ''.join([train_data.itos[int(i)] for i in outputs[0]])
+                    predicted = ''.join([train_data.itos[int(i)] for i in outputsHat])
+                    
+                    if variableEmbedding == 'STR_VAR':
+                        target = target.split(':')[-1]
+                        predicted = predicted.split(':')[-1]
+
+                    target = target.strip(train_data.paddingToken).split('>')
+                    target = target[0] #if len(target[0])>=1 else target[1]
+                    target = target.strip('<').strip(">")
+                    predicted = predicted.strip(train_data.paddingToken).split('>')
+                    predicted = predicted[0] #if len(predicted[0])>=1 else predicted[1]
+                    predicted = predicted.strip('<').strip(">")
+                    
+                    print('Target:{}\nSkeleton:{}'.format(target, predicted))
+                    
+                    o.write('{}\n'.format(target))
+                    o.write('{}:\n'.format('SymbolicGPT'))
+                    o.write('{}\n'.format(predicted))
+                    print(predicted)
+                    skeleton_predicted.append(predicted)
+
+                    # train a regressor to find the constants (too slow)
+                    c = [1.0 for i,x in enumerate(predicted) if x=='C'] # initialize coefficients as 1
+                    # c[-1] = 0 # initialize the constant as zero
+                    b = [(-2,2) for i,x in enumerate(predicted) if x=='C']  # bounds on variables
+                    try:
+                        if len(c) != 0:
+                            # This is the bottleneck in our algorithm
+                            # for easier comparison, we are using minimize package  
+                            cHat = minimize(lossFunc, c, #bounds=b,
+                                        args=(predicted, tr['X'], tr['Y'])) 
+                            
+                            predicted = predicted.replace('C','{}').format(*cHat.x)
+                    except ValueError:
+                        raise 'Err: Wrong Equation {}'.format(predicted)
+                    except Exception as e:
+                        raise 'Err: Wrong Equation {}, Err: {}'.format(predicted, e)
+
+                    # TODO: let's enjoy GPU
+
+                    print('Skeleton+LS:{}'.format(predicted))
+
+                    single_dataset_functions.append(predicted)
+                    # Store the predicted function in the corresponding key/value
+                    #additive_functions_tr[var_num][train_idx] = [predicted]
+
+                    Ys_tr = [] #t['YT']
+                    Yhats_tr = []
+                    for xs in tr['X']:
+                        try:
+                            eqTmp = target + '' # copy eq
+                            eqTmp = eqTmp.replace(' ','')
+                            eqTmp = eqTmp.replace('\n','')
+                            for i,x in enumerate(xs):
+                                # replace xi with the value in the eq
+                                if not perform_gam:
+                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                else:
+                                    for idx in range(numVars):
+                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+                                if ',' in eqTmp:
+                                    assert 'There is a , in the equation!'
+                            YEval = eval(eqTmp)
+                            # YEval = 0 if np.isnan(YEval) else YEval
+                            # YEval = 100 if np.isinf(YEval) else YEval
+                        except:
+                            print('TA: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                            print("Utilizing EQ from data")
+                            eqTmp = tr['EQ']
+                            eqTmp = eqTmp.replace(' ','')
+                            eqTmp = eqTmp.replace('\n','')
+                            for i,x in enumerate(xs):
+                                if not perform_gam:
+                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                else:
+                                    for idx in range(numVars):
+                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+                            
+                            actual_functions_tr[var_num][train_idx] = [eqTmp]
+                            YEval = eval(eqTmp)    
+                            #continue # if there is any point in the target equation that has any problem, ignore it
+                            #YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
+                        
+                        
+                        Ys_tr.append(YEval)
+                        try:
+                            eqTmp = predicted + '' # copy eq
+                            eqTmp = eqTmp.replace(' ','')
+                            eqTmp = eqTmp.replace('\n','')
+                            for i,x in enumerate(xs):
+                                # replace xi with the value in the eq
+                                if not perform_gam:
+                                    eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
+                                else:
+                                    for idx in range(numVars):
+                                        eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
+
+                                if ',' in eqTmp:
+                                    assert 'There is a , in the equation!'
+                            Yhat = eval(eqTmp)
+                            # Yhat = 0 if np.isnan(Yhat) else Yhat
+                            # Yhat = 100 if np.isinf(Yhat) else Yhat
+                        except:
+                            print('PR: For some reason, we used the default value. Eq:{}'.format(eqTmp))
+                            Yhat = 100
+                        Yhats_tr.append(Yhat)   
+                    
+                    err = relativeErr(Ys_tr,Yhats_tr, info=True)
+                    res = compute_residuals(Ys_tr,Yhats_tr, info=True)
+                    print(res)
+
+                    if (max(res) > trainRange[1] or min(res) < trainRange[0]):
+
+                        scaled_res = (res - (trainRange[0])) / (trainRange[1] - trainRange[0])
+
+                        single_residuals[var_num] = scaled_res.tolist()
+                    else:
+                        single_residuals[var_num] = res.tolist()
+
+                    # single_residuals[var_num] = res.tolist()
+                    
+
+
+                    
+
+        except KeyboardInterrupt:
+                print('KeyboardInterrupt')
+
+        continue
 
         loader = torch.utils.data.DataLoader(
                                 train_data, 
@@ -314,6 +511,7 @@ if perform_gam:
             try:
                 with open(fName, 'w', encoding="utf-8") as o:
                     resultDict_tr[fName] = {'SymbolicGPT':{'Error': [], 'Residuals': []}}
+                    train_idx = 0
                     for i, batch in enumerate(loader):
                         
                         inputs,outputs,points,variables = batch
@@ -380,7 +578,7 @@ if perform_gam:
                         print('Skeleton+LS:{}'.format(predicted))
 
                         # Store the predicted function in the corresponding key/value
-                        additive_functions_tr[var_num][i] = [predicted]
+                        additive_functions_tr[var_num][train_idx] = [predicted]
 
                         Ys_tr = [] #t['YT']
                         Yhats_tr = []
@@ -414,7 +612,7 @@ if perform_gam:
                                         for idx in range(numVars):
                                             eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
                                 
-                                actual_functions_tr[var_num][i] = [eqTmp]
+                                actual_functions_tr[var_num][train_idx] = [eqTmp]
                                 YEval = eval(eqTmp)    
                                 #continue # if there is any point in the target equation that has any problem, ignore it
                                 #YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
@@ -445,14 +643,35 @@ if perform_gam:
                         err = relativeErr(Ys_tr,Yhats_tr, info=True)
                         res = compute_residuals(Ys_tr,Yhats_tr, info=True)
 
-                        # Store the residuals in the dictionary
-                        residuals[i] = res
+                        outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,var_num+1)
+                        update_json_line(outpath, train_idx, update_y, res.tolist())
+                        
+                        #residual_path_train_gam = '{}/{}/Train/gam/residuals/residuals.json'.format(dataDir, dataFolder)
+                        # Check if we already computed those residuals
+                        # if os.path.exists(residual_path_train_gam):
+                        #     with open(residual_path_train_gam) as residuals_so_far:
+                        #         data = json.load(residuals_so_far)
+                    
+                        #     if train_idx not in data.keys():
+                        #         res = compute_residuals(Ys_tr,Yhats_tr, info=True)
+                        #         # Store the residuals in the dictionary and create an intermediate file
+                        #         residuals[train_idx] = res.tolist()
+                        #         # Store intermediate residuals
+                        #         with open(residual_path_train_gam, "w") as residual_file:
+                        #             json.dump(residuals, residual_file)
+                        #         train_idx += 1
 
-                        # Store intermediate residuals
-                        residual_path_train_gam = '{}/{}/Train/gam/residuals/residuals.json'.format(dataDir, dataFolder)
-                        with open(residual_path_train_gam, "w") as residual_file:
-                            json.dump(residuals, residual_file)
-                            
+                        #     else:
+                        #         train_idx += 1
+                        #         continue
+                        # else:
+                        #     res = compute_residuals(Ys_tr,Yhats_tr, info=True)
+                        #     residuals[train_idx] = res.tolist()
+                        #     with open(residual_path_train_gam, "w") as residual_file:
+                        #         json.dump(residuals, residual_file)
+                        #     train_idx += 1
+
+                        train_idx += 1
                         residual_count += 1
                         print(f"We have {residual_count} residuals computed")
 
@@ -470,8 +689,8 @@ if perform_gam:
                         print('Err:{}'.format(err))
                         print('Residuals:{}'.format(res))
                         print('') # just an empty line
-                
-
+                        
+                        
                 print('Avg Err:{}'.format(np.mean(resultDict_tr[fName]['SymbolicGPT'])))
             
             except KeyboardInterrupt:
@@ -629,42 +848,42 @@ if perform_gam:
         except KeyboardInterrupt:
             print('KeyboardInterrupt')
 
-    mapped_additive_functions_tr = map_additive_functions(additive_functions_tr)
-    mapped_additive_functions_test = map_additive_functions(additive_functions_test)
+    # mapped_additive_functions_tr = map_additive_functions(additive_functions_tr)
+    # mapped_additive_functions_test = map_additive_functions(additive_functions_test)
     
-    mapped_actual_functions_tr = map_additive_functions(actual_functions_tr)
-    mapped_actual_functions_test = map_additive_functions(actual_functions_test)
+    # mapped_actual_functions_tr = map_additive_functions(actual_functions_tr)
+    # mapped_actual_functions_test = map_additive_functions(actual_functions_test)
 
-    # Write each dictionary to a json file to store them
-    with open('mapped_additive_functions_tr.json', 'w') as file:
-        json.dump(mapped_additive_functions_tr, file, indent = 3)
+    # # Write each dictionary to a json file to store them
+    # with open('mapped_additive_functions_tr.json', 'w') as file:
+    #     json.dump(mapped_additive_functions_tr, file, indent = 3)
 
-    with open('mapped_additive_functions_test.json', 'w') as file:
-        json.dump(mapped_additive_functions_test, file, indent = 3)
+    # with open('mapped_additive_functions_test.json', 'w') as file:
+    #     json.dump(mapped_additive_functions_test, file, indent = 3)
     
-    with open('mapped_actual_functions_tr.json', 'w') as file:
-        json.dump(mapped_actual_functions_tr, file, indent = 3)
+    # with open('mapped_actual_functions_tr.json', 'w') as file:
+    #     json.dump(mapped_actual_functions_tr, file, indent = 3)
 
-    with open('mapped_actual_functions_test.json', 'w') as file:
-        json.dump(mapped_actual_functions_test, file, indent = 3)
+    # with open('mapped_actual_functions_test.json', 'w') as file:
+    #     json.dump(mapped_actual_functions_test, file, indent = 3)
 
 
     # Choose a random idx and compare with the actual 
-    random_idx = np.random.randint(1, len(mapped_additive_functions_tr)+1)
+    # random_idx = np.random.randint(1, len(mapped_additive_functions_tr)+1)
     
-    print(f"Train index: {random_idx}")
-    print("Additive functions")
-    print_additive_functions(mapped_additive_functions_tr, idx)
-    print("Actual functions:")
-    print_actual_functions(mapped_actual_functions_tr, idx)
+    # print(f"Train index: {random_idx}")
+    # print("Additive functions")
+    # print_additive_functions(mapped_additive_functions_tr, idx)
+    # print("Actual functions:")
+    # print_actual_functions(mapped_actual_functions_tr, idx)
 
 
-    random_idx = np.random.randint(1,len(mapped_additive_functions_test)+1)
-    print(f"Test index: {random_idx}")
-    print("Additive functions")
-    print_additive_functions(mapped_additive_functions_test, idx)
-    print("Actual function:")
-    print_actual_functions(mapped_actual_functions_test, idx)
+    # random_idx = np.random.randint(1,len(mapped_additive_functions_test)+1)
+    # print(f"Test index: {random_idx}")
+    # print("Additive functions")
+    # print_additive_functions(mapped_additive_functions_test, idx)
+    # print("Actual function:")
+    # print_actual_functions(mapped_actual_functions_test, idx)
 else:
     try:
         # create the model
@@ -787,7 +1006,7 @@ else:
                 # TODO: let's enjoy GPU
 
                 print('Skeleton+LS:{}'.format(predicted))
-
+                
                 Ys = [] #t['YT']
                 Yhats = []
                 for xs in t['XT']:
@@ -846,39 +1065,48 @@ else:
     except KeyboardInterrupt:
         print('KeyboardInterrupt')
 
-# plot the error frequency for model comparison
-if not perform_gam:
-    num_eqns = len(resultDict[fName]['SymbolicGPT'])
-else:
-    num_eqns = len(resultDict[fName]['SymbolicGPT']['Error'])
-num_vars = pconf.numberofVars
-title = titleTemplate.format(num_eqns, num_vars)
+print("The two skeleton equations are:")
+print(skeleton_predicted)
 
-models = list(key for key in resultDict[fName].keys() if len(resultDict[fName][key])==num_eqns)
-lists_of_error_scores = [resultDict[fName][key] for key in models if len(resultDict[fName][key])==num_eqns]
-linestyles = ["-","dashdot","dotted","--"]
+print("The two computed functions are: ")
+print(single_dataset_functions)
 
-eps = 0.00001
-y, x, _ = plt.hist([np.log([max(min(x+eps, 1e5),1e-5) for x in e]) for e in lists_of_error_scores],
-                   label=models,
-                   cumulative=True, 
-                   histtype="step", 
-                   bins=2000, 
-                   density=True,
-                   log=False)
-y = np.expand_dims(y,0)
-plt.figure(figsize=(15, 10))
+print("Residuals:")
+print(single_residuals)
 
-for idx, m in enumerate(models): 
-    plt.plot(x[:-1], 
-           y[idx] * 100, 
-           linestyle=linestyles[idx], 
-           label=m)
+# # plot the error frequency for model comparison
+# if not perform_gam:
+#     num_eqns = len(resultDict[fName]['SymbolicGPT'])
+# else:
+#     num_eqns = len(resultDict[fName]['SymbolicGPT']['Error'])
+# num_vars = pconf.numberofVars
+# title = titleTemplate.format(num_eqns, num_vars)
 
-plt.legend(loc="upper left")
-plt.title(title)
-plt.xlabel("Log of Relative Mean Square Error")
-plt.ylabel("Normalized Cumulative Frequency")
+# models = list(key for key in resultDict[fName].keys() if len(resultDict[fName][key])==num_eqns)
+# lists_of_error_scores = [resultDict[fName][key] for key in models if len(resultDict[fName][key])==num_eqns]
+# linestyles = ["-","dashdot","dotted","--"]
 
-name = '{}.png'.format(fName.split('.txt')[0])
-plt.savefig(name)
+# eps = 0.00001
+# y, x, _ = plt.hist([np.log([max(min(x+eps, 1e5),1e-5) for x in e]) for e in lists_of_error_scores],
+#                    label=models,
+#                    cumulative=True, 
+#                    histtype="step", 
+#                    bins=2000, 
+#                    density=True,
+#                    log=False)
+# y = np.expand_dims(y,0)
+# plt.figure(figsize=(15, 10))
+
+# for idx, m in enumerate(models): 
+#     plt.plot(x[:-1], 
+#            y[idx] * 100, 
+#            linestyle=linestyles[idx], 
+#            label=m)
+
+# plt.legend(loc="upper left")
+# plt.title(title)
+# plt.xlabel("Log of Relative Mean Square Error")
+# plt.ylabel("Normalized Cumulative Frequency")
+
+# name = '{}.png'.format(fName.split('.txt')[0])
+# plt.savefig(name)
