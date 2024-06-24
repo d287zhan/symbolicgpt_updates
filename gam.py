@@ -164,3 +164,21 @@ def print_actual_functions(mapped_dict, idx):
 
 
 
+def add_gaussian_noise(mean, sd, data_path, out_path):
+
+    # Simulate a single point from a Gaussian distribution to add noise
+    gaussian_distribution = np.random.normal(mean, sd, 1)[0]
+
+    with open(data_path, 'r') as file:
+        with open(out_path, 'w') as output_file:
+            for line_number, line in enumerate(file, start=1):
+                updated_data = {}
+                data = json.loads(line)
+                updated_data["X"] = data["X"]
+                updated_data["Y"] = (np.array(data["Y"])+ gaussian_distribution).tolist()
+                updated_data["EQ"] = data["EQ"]
+                updated_data["Skeleton"] = data["Skeleton"]
+
+                json.dump(updated_data , output_file)
+                output_file.write('\n')
+                
