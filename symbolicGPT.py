@@ -72,6 +72,7 @@ set_seed(42)
 
 # 1 var config for fine-tuning
 scratch = True
+device='gpu'
 numEpochs = 5 # number of epochs to train the GPT+PT model
 embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
 numPoints=[30,31] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
@@ -962,7 +963,8 @@ else:
                   padding_idx=train_dataset_full.paddingID)
         model = GPT(mconf, pconf)
 
-
+        pre_trained_one_var_path = "./SavedModels//XYE_1Var_30-31Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
+        model.load_state_dict(torch.load(pre_trained_one_var_path))
         # initialize a trainer instance and kick off training
         tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize, 
                       learning_rate=6e-4,
