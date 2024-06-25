@@ -108,7 +108,7 @@ get_full_test = False
 
 # We want to finetune the original numVars - 1 pretrained weights
 fine_tune = True
-
+ckptPath_fine_tune = '{}/{}_fine_tuned.pt'.format(addr,fName.split('.txt')[0])
 # If fine-tune, then add gaussian noise to the original train datasets.
 if fine_tune:
     in_path = './datasets/1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points/Train/0_1_0_14062021_193012.json'
@@ -968,7 +968,7 @@ else:
                       learning_rate=6e-4,
                       lr_decay=True, warmup_tokens=512*20, 
                       final_tokens=2*len(train_dataset_full)*blockSize,
-                      num_workers=0, ckpt_path=ckptPath)
+                      num_workers=0, ckpt_path=ckptPath_fine_tune)
         trainer = Trainer(model, train_dataset_full, val_dataset_full, tconf, bestLoss, device=device)
         if fine_tune:
             trainer.train()
