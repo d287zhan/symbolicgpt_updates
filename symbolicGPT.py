@@ -36,15 +36,48 @@ from gam import *
 # set the random seed
 set_seed(42)
 
-# config
-device='gpu'
-scratch=True # if you want to ignore the cache and start for scratch
-numEpochs = 20 # number of epochs to train the GPT+PT model
+# 2 var config for GAM-related stuff
+# device='gpu'
+# scratch=True # if you want to ignore the cache and start for scratch
+# numEpochs = 20 # number of epochs to train the GPT+PT model
+# embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
+# numPoints=[200,201] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+# numVars=2 # the dimenstion of input points x, if you don't know then use the maximum
+# numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
+# blockSize = 64 # spatial extent of the model for its context
+# testBlockSize = 400
+# batchSize = 128 # batch size of training data
+# target = 'Skeleton' #'Skeleton' #'EQ'
+# const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
+# decimals = 8 # decimals of the points only if target is Skeleton
+# trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
+# dataDir = './datasets/'
+# dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
+# titleTemplate = "{} equations of {} variables - Benchmark"
+# target = 'Skeleton' #'Skeleton' #'EQ'
+# dataFolder = '2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points'
+# addr = './SavedModels/' # where to save model
+# method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
+
+
+# EMB_CAT: Concat point embedding to GPT token+pos embedding
+# EMB_SUM: Add point embedding to GPT tokens+pos embedding
+# OUT_CAT: Concat the output of the self-attention and point embedding
+# OUT_SUM: Add the output of the self-attention and point embedding
+# EMB_CON: Conditional Embedding, add the point embedding as the first token
+# variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
+# NOT_VAR: Do nothing, will not pass any information from the number of variables in the equation to the GPT
+# LEA_EMB: Learnable embedding for the variables, added to the pointNET embedding
+# STR_VAR: Add the number of variables to the first token
+
+# 1 var config for fine-tuning
+scratch = True
+numEpochs = 5 # number of epochs to train the GPT+PT model
 embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
-numPoints=[200,201] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
-numVars=2 # the dimenstion of input points x, if you don't know then use the maximum
+numPoints=[30,31] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+numVars=1 # the dimenstion of input points x, if you don't know then use the maximum
 numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
-blockSize = 64 # spatial extent of the model for its context
+blockSize = 200 # spatial extent of the model for its context
 testBlockSize = 400
 batchSize = 128 # batch size of training data
 target = 'Skeleton' #'Skeleton' #'EQ'
@@ -55,19 +88,12 @@ dataDir = './datasets/'
 dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
 titleTemplate = "{} equations of {} variables - Benchmark"
 target = 'Skeleton' #'Skeleton' #'EQ'
-dataFolder = '2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points'
+dataFolder = '1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points'
 addr = './SavedModels/' # where to save model
 method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
-
-# EMB_CAT: Concat point embedding to GPT token+pos embedding
-# EMB_SUM: Add point embedding to GPT tokens+pos embedding
-# OUT_CAT: Concat the output of the self-attention and point embedding
-# OUT_SUM: Add the output of the self-attention and point embedding
-# EMB_CON: Conditional Embedding, add the point embedding as the first token
 variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
-# NOT_VAR: Do nothing, will not pass any information from the number of variables in the equation to the GPT
-# LEA_EMB: Learnable embedding for the variables, added to the pointNET embedding
-# STR_VAR: Add the number of variables to the first token
+
+
 addVars = True if variableEmbedding == 'STR_VAR' else False
 maxNumFiles = 100 # maximum number of file to load in memory for training the neural network
 bestLoss = None # if there is any model to load as pre-trained one
@@ -80,10 +106,16 @@ get_full_train = True
 get_full_val= True
 get_full_test = False
 
-# We want to finetune the numVars - 1 pretrained weights
+# We want to finetune the original numVars - 1 pretrained weights
 fine_tune = True
 
-ckptPath = '{}/{}.pt'.format(addr,fName.split('.txt')[0])
+# If fine-tune, then add gaussian noise to the original train datasets.
+if fine_tune:
+    in_path = './datasets/1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points/Train/0_1_0_14062021_193012.json'
+    out_path = './datasets/1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points/Train/0_1_0_14062021_193012_gaussian_noise.json'
+    add_gaussian_noise(in_path, out_path)
+
+#ckptPath = '{}/{}.pt'.format(addr,fName.split('.txt')[0])
 
 try: 
     os.mkdir(addr)
@@ -100,6 +132,7 @@ else:
     # process training files from scratch
     path = '{}/{}/Train/*.json'.format(dataDir, dataFolder)
     eval_single_path = '{}/{}/Train/test.json'.format(dataDir, dataFolder)
+    fine_tune_path = './datasets/1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points/Train/0_1_0_14062021_193012_gaussian_noise.json'
     # Break it down to only one covariate at a time
     # In order of data x1,x2,.., xn, y for the shape of points
     if perform_gam:
@@ -111,7 +144,7 @@ else:
             outpath_2 = '{}/{}/Train/gam/single_eval/{}_vars_x_{}_dataset_test.json'.format(dataDir, dataFolder,numVars,i)
             create_gam_datasets( True,eval_single_path, outpath_2, i)
 
-    if get_full_train:
+    if get_full_train and not fine_tune:
         files = glob.glob(path)[:maxNumFiles]
         text = processDataFiles(files)
         chars = sorted(list(set(text))+['_','T','<','>',':']) # extract unique characters from the text before converting the text to a list, # T is for the test data
@@ -122,12 +155,20 @@ else:
                         numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
                         const_range=const_range, xRange=trainRange, decimals=decimals, augment=False)
         
-
-        eval_single_text = processDataFiles([eval_single_path])
-        eval_single_text = eval_single_text.split('\n')
-        eval_single_dataset = CharDataset(eval_single_text, blockSize, chars, numVars=numVars, 
-                    numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
-                    const_range=const_range, xRange=trainRange, decimals=decimals)
+    if get_full_train and fine_tune:
+        text = processDataFiles([fine_tune_path])
+        chars = sorted(list(set(text))+['_','T','<','>',':'])
+        text = text.split('\n')
+        trainText_full = text[:-1] if len(text[-1]) == 0 else text
+        random.shuffle(trainText_full) # shuffle the dataset, it's important specailly for the combined number of variables experiment
+        train_dataset_full = CharDataset(text, blockSize, chars, numVars=numVars, 
+                        numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
+                        const_range=const_range, xRange=trainRange, decimals=decimals, augment=False)
+        # eval_single_text = processDataFiles([eval_single_path])
+        # eval_single_text = eval_single_text.split('\n')
+        # eval_single_dataset = CharDataset(eval_single_text, blockSize, chars, numVars=numVars, 
+        #             numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
+        #             const_range=const_range, xRange=trainRange, decimals=decimals)
         
 
     # with open(train_file, 'wb') as f:
