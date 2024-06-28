@@ -37,12 +37,46 @@ from gam import *
 set_seed(42)
 
 # 2 var config for GAM-related stuff
+device='gpu'
+scratch=True # if you want to ignore the cache and start for scratch
+numEpochs = 20 # number of epochs to train the GPT+PT model
+embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
+numPoints=[200,201] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+numVars=2 # the dimenstion of input points x, if you don't know then use the maximum
+numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
+blockSize = 64 # spatial extent of the model for its context
+testBlockSize = 400
+batchSize = 128 # batch size of training data
+target = 'Skeleton' #'Skeleton' #'EQ'
+const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
+decimals = 8 # decimals of the points only if target is Skeleton
+trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
+dataDir = './datasets/'
+dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
+titleTemplate = "{} equations of {} variables - Benchmark"
+target = 'Skeleton' #'Skeleton' #'EQ'
+dataFolder = '2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points'
+addr = './SavedModels/' # where to save model
+method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
+
+
+# EMB_CAT: Concat point embedding to GPT token+pos embedding
+# EMB_SUM: Add point embedding to GPT tokens+pos embedding
+# OUT_CAT: Concat the output of the self-attention and point embedding
+# OUT_SUM: Add the output of the self-attention and point embedding
+# EMB_CON: Conditional Embedding, add the point embedding as the first token
+variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
+# NOT_VAR: Do nothing, will not pass any information from the number of variables in the equation to the GPT
+# LEA_EMB: Learnable embedding for the variables, added to the pointNET embedding
+# STR_VAR: Add the number of variables to the first token
+
+# 1 var config for fine-tuning
+# scratch = True
 # device='gpu'
-# scratch=True # if you want to ignore the cache and start for scratch
-# numEpochs = 20 # number of epochs to train the GPT+PT model
+# numEpochs = 5 # number of epochs to train the GPT+PT model
 # embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
-# numPoints=[200,201] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
-# numVars=2 # the dimenstion of input points x, if you don't know then use the maximum
+# numPoints=[30,31] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+# numVars=1 # the dimenstion of input points x, if you don't know then use the maximum
 # numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
 # blockSize = 64 # spatial extent of the model for its context
 # testBlockSize = 400
@@ -55,44 +89,10 @@ set_seed(42)
 # dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
 # titleTemplate = "{} equations of {} variables - Benchmark"
 # target = 'Skeleton' #'Skeleton' #'EQ'
-# dataFolder = '2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points'
+# dataFolder = '1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points'
 # addr = './SavedModels/' # where to save model
 # method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
-
-
-# EMB_CAT: Concat point embedding to GPT token+pos embedding
-# EMB_SUM: Add point embedding to GPT tokens+pos embedding
-# OUT_CAT: Concat the output of the self-attention and point embedding
-# OUT_SUM: Add the output of the self-attention and point embedding
-# EMB_CON: Conditional Embedding, add the point embedding as the first token
 # variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
-# NOT_VAR: Do nothing, will not pass any information from the number of variables in the equation to the GPT
-# LEA_EMB: Learnable embedding for the variables, added to the pointNET embedding
-# STR_VAR: Add the number of variables to the first token
-
-# 1 var config for fine-tuning
-scratch = True
-device='gpu'
-numEpochs = 5 # number of epochs to train the GPT+PT model
-embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
-numPoints=[30,31] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
-numVars=1 # the dimenstion of input points x, if you don't know then use the maximum
-numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
-blockSize = 200 # spatial extent of the model for its context
-testBlockSize = 400
-batchSize = 128 # batch size of training data
-target = 'Skeleton' #'Skeleton' #'EQ'
-const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
-decimals = 8 # decimals of the points only if target is Skeleton
-trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
-dataDir = './datasets/'
-dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
-titleTemplate = "{} equations of {} variables - Benchmark"
-target = 'Skeleton' #'Skeleton' #'EQ'
-dataFolder = '1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points'
-addr = './SavedModels/' # where to save model
-method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
-variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
 
 
 addVars = True if variableEmbedding == 'STR_VAR' else False
@@ -102,9 +102,9 @@ fName = '{}_SymbolicGPT_{}_{}_{}_MINIMIZE.txt'.format(dataInfo,
                                              'GPT_PT_{}_{}'.format(method, target), 
                                              'Padding',
                                              variableEmbedding)
-perform_gam = False
-get_full_train = True
-get_full_val= True
+perform_gam = True
+get_full_train = False
+get_full_val= False
 get_full_test = False
 
 # We want to finetune the original numVars - 1 pretrained weights
@@ -114,8 +114,10 @@ ckptPath_fine_tune = '{}/{}_fine_tuned.pt'.format(addr,fName.split('.txt')[0])
 if fine_tune:
     in_path = './datasets/1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points/Train/0_1_0_14062021_193012.json'
     out_path = './datasets/1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points/Train/0_1_0_14062021_193012_gaussian_noise.json'
-    add_gaussian_noise(in_path, out_path)
-
+    
+    if not os.path.exists(out_path):
+        add_gaussian_noise(in_path, out_path)
+print("Done creating Noisy Dataset")
 #ckptPath = '{}/{}.pt'.format(addr,fName.split('.txt')[0])
 
 try: 
@@ -155,6 +157,13 @@ else:
         train_dataset_full = CharDataset(text, blockSize, chars, numVars=numVars, 
                         numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
                         const_range=const_range, xRange=trainRange, decimals=decimals, augment=False)
+        
+
+        eval_single_text = processDataFiles([eval_single_path])
+        eval_single_text = eval_single_text.split('\n')
+        eval_single_dataset = CharDataset(eval_single_text, blockSize, chars, numVars=numVars, 
+                    numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
+                    const_range=const_range, xRange=trainRange, decimals=decimals)
         
     if get_full_train and fine_tune:
         text = processDataFiles([fine_tune_path])
@@ -369,12 +378,11 @@ if perform_gam:
         #     trainer = Trainer(model, train_data, val_data, tconf, bestLoss, device = device)
         #     trainer.train()
         # Evaluate model on train data to get residuals and the predicted function
-        # print('The following model {} has been loaded!'.format(ckptPath_gam))
-        #pre_trained_path = "./SavedModels//XYE_1Var_30-31Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"        
+        print('The following model {} has been loaded!'.format(ckptPath_fine_tune))
+        pre_trained_path = "./SavedModels//XYE_1Var_[30, 31]Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE_fine_tuned.pt"        
         
         # Compare MSE on the original 2 variable dataset.
-        pre_trained_path = "./SavedModels//XYE_2Var_200-201Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
-
+        #pre_trained_path = "./SavedModels//XYE_2Var_200-201Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
         print('The following model {} has been loaded!'.format(pre_trained_path))
         trainer = Trainer(model, train_data2, val_data, tconf, bestLoss, device = device)
         model.load_state_dict(torch.load(pre_trained_path))
@@ -950,6 +958,7 @@ if perform_gam:
     print("Residuals:")
     print(single_residuals)
 else:
+    print("Not performing GAM")
     try:
         # create the model
         pconf = PointNetConfig(embeddingSize=embeddingSize, 
@@ -963,7 +972,10 @@ else:
                   padding_idx=train_dataset_full.paddingID)
         model = GPT(mconf, pconf)
 
+        # Load the pre-trained 1 var model
         pre_trained_one_var_path = "./SavedModels//XYE_1Var_30-31Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
+        
+        print('The following model {} has been loaded!'.format(pre_trained_one_var_path))
         model.load_state_dict(torch.load(pre_trained_one_var_path))
         # initialize a trainer instance and kick off training
         tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize, 
@@ -973,6 +985,7 @@ else:
                       num_workers=0, ckpt_path=ckptPath_fine_tune)
         trainer = Trainer(model, train_dataset_full, val_dataset_full, tconf, bestLoss, device=device)
         if fine_tune:
+            # fine tune the model with the gaussian noise added dataset
             trainer.train()
     except KeyboardInterrupt:
         print('KeyboardInterrupt')
@@ -994,12 +1007,12 @@ else:
     skeleton_predicted_two_var = []
 
     #  load the best model
-    pre_trained_path = "./SavedModels//XYE_2Var_200-201Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
+    #pre_trained_path = "./SavedModels//XYE_2Var_200-201Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
 
-    print('The following model {} has been loaded!'.format(pre_trained_path))
+    print('The following model {} has been loaded!'.format(ckptPath_fine_tune))
     #print('The following model {} has been loaded!'.format(ckptPath))
     #model.load_state_dict(torch.load(ckptPath))
-    model.load_state_dict(torch.load(pre_trained_path))
+    model.load_state_dict(torch.load(ckptPath_fine_tune))
     model = model.eval().to(trainer.device)
 
     loader_two_var_single_dataset = torch.utils.data.DataLoader(
