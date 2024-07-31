@@ -36,10 +36,11 @@ def read_json_lines_and_update_y(file_path, residuals, out_path):
                 updated_data = {}
                 data = json.loads(line)
                 updated_data["X"] = data["X"]
-                if (line_number -1) in residuals.keys():
-                    updated_data["Y"] = residuals[line_number-1]
-                else:
-                    updated_data["Y"] = data["Y"]
+                updated_data["Y"] = residuals
+                # if (line_number -1) in residuals.keys():
+                #     updated_data["Y"] = residuals[line_number-1]
+                # else:
+                #     updated_data["Y"] = data["Y"]
                     #continue
                 updated_data["EQ"] = data["EQ"]
                 updated_data["Skeleton"] = data["Skeleton"]

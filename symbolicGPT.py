@@ -59,6 +59,28 @@ dataFolder = '2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points'
 addr = './SavedModels/' # where to save model
 method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
 
+# 9 var stuff
+# numEpochs = 20 # number of epochs to train the GPT+PT model
+# embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
+# numPoints=[20,250] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+# numVars=9 # the dimenstion of input points x, if you don't know then use the maximum
+# numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
+# blockSize = 200 # spatial extent of the model for its context
+# testBlockSize = 400
+# batchSize = 128 # batch size of training data
+# target = 'Skeleton' #'Skeleton' #'EQ'
+# const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
+# decimals = 8 # decimals of the points only if target is Skeleton
+# trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
+# dataDir = './datasets/'
+# dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
+# titleTemplate = "{} equations of {} variables - Benchmark"
+# target = 'Skeleton' #'Skeleton' #'EQ'
+# dataFolder = '1-9Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_20-250'
+# addr = './SavedModels/' # where to save model
+# method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation.
+# variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
+
 
 # EMB_CAT: Concat point embedding to GPT token+pos embedding
 # EMB_SUM: Add point embedding to GPT tokens+pos embedding
@@ -108,7 +130,7 @@ get_full_val= False
 get_full_test = False
 
 # We want to finetune the original numVars - 1 pretrained weights
-fine_tune = True
+fine_tune = False
 ckptPath_fine_tune = '{}/{}_fine_tuned.pt'.format(addr,fName.split('.txt')[0])
 # If fine-tune, then add gaussian noise to the original train datasets.
 if fine_tune:
@@ -134,8 +156,34 @@ if os.path.isfile(train_file) and not scratch:
 else:
     # process training files from scratch
     path = '{}/{}/Train/*.json'.format(dataDir, dataFolder)
-    eval_single_path = '{}/{}/Train/test.json'.format(dataDir, dataFolder)
+    eval_single_path = './datasets/2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points/Train/gam/single_eval1/nine_var/nine_var.json'
     fine_tune_path = './datasets/1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points/Train/0_1_0_14062021_193012_gaussian_noise.json'
+    # eval_single_text = processDataFiles([eval_single_path])
+    # eval_single_text = eval_single_text.split('\n')
+    # chars = sorted(['\n', ' ', '"', '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', 'C', 'E', 'Q', 'S', 'X', 'Y', '[', ']', 'a', 'b', 'c', 'e', 'g', 'h', 'i', 'k', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'x', '{', '}'] + ['_','T','<','>',':'])
+
+    # eval_single_dataset = CharDataset(eval_single_text, blockSize, chars, numVars=numVars, 
+    #                 numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
+    #                 const_range=const_range, xRange=trainRange, decimals=decimals)
+    # #print(eval_single_dataset.__getitem__(0))
+    # loader_two_var_single_dataset = torch.utils.data.DataLoader(
+    #                                 eval_single_dataset, 
+    #                                 shuffle=False, 
+    #                                 pin_memory=True,
+    #                                 batch_size=1,
+    #                                 num_workers=0)
+    # #print(loader_two_var_single_dataset)
+    # #print(enumerate(loader_two_var_single_dataset))
+    # #print(wow)
+    # for i, batch in enumerate(loader_two_var_single_dataset):
+    #     inputs,outputs,points,variables = batch
+    #     print(inputs)
+    #     print(outputs)
+    #     print(points)
+    #     print(variables)
+    #     print(wow)
+    # print("out")
+
     # Break it down to only one covariate at a time
     # In order of data x1,x2,.., xn, y for the shape of points
     if perform_gam:
@@ -151,6 +199,7 @@ else:
         files = glob.glob(path)[:maxNumFiles]
         text = processDataFiles(files)
         chars = sorted(list(set(text))+['_','T','<','>',':']) # extract unique characters from the text before converting the text to a list, # T is for the test data
+        #chars = sorted(['\n', ' ', '"', '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', 'C', 'E', 'Q', 'S', 'X', 'Y', '[', ']', 'a', 'b', 'c', 'e', 'g', 'h', 'i', 'k', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'x', '{', '}'] + ['_','T','<','>',':'])
         text = text.split('\n') # convert the raw text to a set of examples
         trainText_full = text[:-1] if len(text[-1]) == 0 else text
         random.shuffle(trainText_full) # shuffle the dataset, it's important specailly for the combined number of variables experiment
@@ -161,13 +210,17 @@ else:
 
         eval_single_text = processDataFiles([eval_single_path])
         eval_single_text = eval_single_text.split('\n')
+        
         eval_single_dataset = CharDataset(eval_single_text, blockSize, chars, numVars=numVars, 
                     numYs=numYs, numPoints=numPoints, target=target, addVars=addVars,
                     const_range=const_range, xRange=trainRange, decimals=decimals)
         
+        #print(wow)
+
     if get_full_train and fine_tune:
         text = processDataFiles([fine_tune_path])
-        chars = sorted(list(set(text))+['_','T','<','>',':'])
+        # chars = sorted(list(set(text))+['_','T','<','>',':'])
+        chars = ['\n', ' ', '"', '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', 'C', 'E', 'Q', 'S', 'X', 'Y', '[', ']', 'a', 'b', 'c', 'e', 'g', 'h', 'i', 'k', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'x', '{', '}']
         text = text.split('\n')
         trainText_full = text[:-1] if len(text[-1]) == 0 else text
         random.shuffle(trainText_full) # shuffle the dataset, it's important specailly for the combined number of variables experiment
@@ -262,7 +315,7 @@ if perform_gam:
     actual_functions_test = {}
 
     # Create the keys to keep track of functions
-    for i in range(numVars):
+    for i in range(9):
         additive_functions_tr[i] = {}
         additive_functions_test[i] = {}
         actual_functions_tr[i] = {}
@@ -272,7 +325,7 @@ if perform_gam:
     val_gam_path = '{}/{}/Val/gam/*.json'.format(dataDir, dataFolder)
     test_gam_path = '{}/{}/Test/gam/*.json'.format(dataDir, dataFolder)
     
-    single_eval_path = '{}/{}/Train/gam/single_eval/*.json'.format(dataDir, dataFolder)
+    single_eval_path = '{}/{}/Train/gam/single_eval1/*.json'.format(dataDir, dataFolder)
 
     val_files = glob.glob(val_gam_path)
     test_files = glob.glob(test_gam_path)
@@ -281,7 +334,7 @@ if perform_gam:
     single_residuals = {}
     single_dataset_functions =[]
     skeleton_predicted = []
-    for var_num in range(numVars):
+    for var_num in range(9):
         print(single_dataset_functions)
         # Keep track of residuals for each variable
         
@@ -299,7 +352,7 @@ if perform_gam:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[var_num]]
             train_files2 = [glob.glob(single_eval_path)[var_num]]
-            print(f"Reading file {train_files}")
+            print(f"Reading file {train_files2}")
             # Do similar thing with val and test
             trainText, train_chars, train_data = gam_backfitting_preprocess(False, True, train_files, blockSize, 1, numYs,
                                                     numPoints, target, addVars, const_range, 
@@ -313,14 +366,14 @@ if perform_gam:
             
         else:
             print(f"Reading from {train_gam_path}")
-            train_files = [glob.glob(train_gam_path)[var_num]]
+            #train_files = [glob.glob(train_gam_path)[var_num]]
             train_files2 = [glob.glob(single_eval_path)[var_num]]
             print(train_files2)
             # update with residuals
-            outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,var_num)
-            outpath_2 = '{}/{}/Train/gam/single_eval/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,var_num)
+            #outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,var_num)
+            outpath_2 = '{}/{}/Train/gam/single_eval1/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,9,var_num)
             for file in train_files2:
-                read_json_lines_and_update_y(file, single_residuals, outpath_2)
+                read_json_lines_and_update_y(file, single_residuals[var_num-1], outpath_2)
             print("Done updating!")
             #Update target to be Skeleton again causing errors
             target = "Skeleton"
@@ -473,7 +526,6 @@ if perform_gam:
                     # TODO: let's enjoy GPU
 
                     print('Skeleton+LS:{}'.format(predicted))
-
                     single_dataset_functions.append(predicted)
                     # Store the predicted function in the corresponding key/value
                     #additive_functions_tr[var_num][train_idx] = [predicted]
@@ -494,6 +546,7 @@ if perform_gam:
                                         eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
                                 if ',' in eqTmp:
                                     assert 'There is a , in the equation!'
+
                             YEval = eval(eqTmp)
                             # YEval = 0 if np.isnan(YEval) else YEval
                             # YEval = 100 if np.isinf(YEval) else YEval
@@ -507,7 +560,7 @@ if perform_gam:
                                 if not perform_gam:
                                     eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
                                 else:
-                                    for idx in range(numVars):
+                                    for idx in range(9):
                                         eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
                             
                             actual_functions_tr[var_num][train_idx] = [eqTmp]
@@ -515,7 +568,7 @@ if perform_gam:
                             #continue # if there is any point in the target equation that has any problem, ignore it
                             #YEval = 100 #TODO: Maybe I have to punish the model for each wrong template not for each point
                         
-                        
+                        print(YEval)
                         Ys_tr.append(YEval)
                         try:
                             eqTmp = predicted + '' # copy eq
@@ -526,7 +579,7 @@ if perform_gam:
                                 if not perform_gam:
                                     eqTmp = eqTmp.replace('x{}'.format(i+1), str(x))
                                 else:
-                                    for idx in range(numVars):
+                                    for idx in range(9):
                                         eqTmp = eqTmp.replace('x{}'.format(idx+1), str(x))
 
                                 if ',' in eqTmp:
@@ -541,7 +594,7 @@ if perform_gam:
                     
                     err = relativeErr(Ys_tr,Yhats_tr, info=True)
                     res = compute_residuals(Ys_tr,Yhats_tr, info=True)
-                    print(res)
+                    print(len(res))
 
                     if (max(res) > trainRange[1] or min(res) < trainRange[0]):
 
@@ -959,36 +1012,36 @@ if perform_gam:
     print(single_residuals)
 else:
     print("Not performing GAM")
-    try:
-        # create the model
-        pconf = PointNetConfig(embeddingSize=embeddingSize, 
-                       numberofPoints=numPoints[1]-1, 
-                       numberofVars=numVars, 
-                       numberofYs=numYs,
-                       method=method,
-                       variableEmbedding=variableEmbedding)
-        mconf = GPTConfig(train_dataset_full.vocab_size, train_dataset_full.block_size,
-                  n_layer=8, n_head=8, n_embd=embeddingSize, 
-                  padding_idx=train_dataset_full.paddingID)
-        model = GPT(mconf, pconf)
+    # try:
+    #     # create the model
+    #     pconf = PointNetConfig(embeddingSize=embeddingSize, 
+    #                    numberofPoints=numPoints[1]-1, 
+    #                    numberofVars=numVars, 
+    #                    numberofYs=numYs,
+    #                    method=method,
+    #                    variableEmbedding=variableEmbedding)
+    #     mconf = GPTConfig(train_dataset_full.vocab_size, train_dataset_full.block_size,
+    #               n_layer=8, n_head=8, n_embd=embeddingSize, 
+    #               padding_idx=train_dataset_full.paddingID)
+    #     model = GPT(mconf, pconf)
 
-        # Load the pre-trained 1 var model
-        pre_trained_one_var_path = "./SavedModels//XYE_1Var_30-31Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
-        
-        print('The following model {} has been loaded!'.format(pre_trained_one_var_path))
-        model.load_state_dict(torch.load(pre_trained_one_var_path))
-        # initialize a trainer instance and kick off training
-        tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize, 
-                      learning_rate=6e-4,
-                      lr_decay=True, warmup_tokens=512*20, 
-                      final_tokens=2*len(train_dataset_full)*blockSize,
-                      num_workers=0, ckpt_path=ckptPath_fine_tune)
-        trainer = Trainer(model, train_dataset_full, val_dataset_full, tconf, bestLoss, device=device)
-        if fine_tune:
-            # fine tune the model with the gaussian noise added dataset
-            trainer.train()
-    except KeyboardInterrupt:
-        print('KeyboardInterrupt')
+    #     # Load the pre-trained 1 var model
+    #     #pre_trained_one_var_path = "./SavedModels//XYE_1Var_30-31Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
+    #     pre_trained_nine_var_path = "./SavedModels//XYE_9Var_20-250Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
+    #     print('The following model {} has been loaded!'.format(pre_trained_nine_var_path))
+    #     model.load_state_dict(torch.load(pre_trained_nine_var_path))
+    #     # initialize a trainer instance and kick off training
+    #     tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize, 
+    #                   learning_rate=6e-4,
+    #                   lr_decay=True, warmup_tokens=512*20, 
+    #                   final_tokens=2*len(train_dataset_full)*blockSize,
+    #                   num_workers=0, ckpt_path=ckptPath_fine_tune)
+    #     trainer = Trainer(model, train_dataset_full, val_dataset_full, tconf, bestLoss, device=device)
+    #     if fine_tune:
+    #         # fine tune the model with the gaussian noise added dataset
+    #         trainer.train()
+    # except KeyboardInterrupt:
+    #     print('KeyboardInterrupt')
  
         
 
@@ -1002,17 +1055,33 @@ else:
 # except KeyboardInterrupt:
 #     print('KeyboardInterrupt')
 
-
+    pconf = PointNetConfig(embeddingSize=embeddingSize, 
+                       numberofPoints=numPoints[1]-1, 
+                       numberofVars=numVars, 
+                       numberofYs=numYs,
+                       method=method,
+                       variableEmbedding=variableEmbedding)
+    tconf = TrainerConfig(max_epochs=numEpochs, batch_size=batchSize, 
+                      learning_rate=6e-4,
+                      lr_decay=True, warmup_tokens=512*20, 
+                      final_tokens=2*len(train_dataset_full)*blockSize,
+                      num_workers=0, ckpt_path=ckptPath_fine_tune)
+    mconf = GPTConfig(train_dataset_full.vocab_size, train_dataset_full.block_size,
+                  n_layer=8, n_head=8, n_embd=embeddingSize, 
+                  padding_idx=train_dataset_full.paddingID)
+    model = GPT(mconf, pconf)
+    trainer = Trainer(model, train_dataset_full, val_dataset_full, tconf, bestLoss, device=device)
+    print("I am here")
     single_dataset_functions_two_var =[]
     skeleton_predicted_two_var = []
 
     #  load the best model
     #pre_trained_path = "./SavedModels//XYE_2Var_200-201Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
-
-    print('The following model {} has been loaded!'.format(ckptPath_fine_tune))
+    pre_trained_path = "./SavedModels//XYE_9Var_20-250Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
+    print('The following model {} has been loaded!'.format(pre_trained_path))
     #print('The following model {} has been loaded!'.format(ckptPath))
     #model.load_state_dict(torch.load(ckptPath))
-    model.load_state_dict(torch.load(ckptPath_fine_tune))
+    model.load_state_dict(torch.load(pre_trained_path))
     model = model.eval().to(trainer.device)
 
     loader_two_var_single_dataset = torch.utils.data.DataLoader(
@@ -1021,16 +1090,21 @@ else:
                                     pin_memory=True,
                                     batch_size=1,
                                     num_workers=0)
+    
     from utils import *
     resultDict = {}
     try:
         with open(fName, 'w', encoding="utf-8") as o:
             resultDict[fName] = {'SymbolicGPT':[]}
-
+            print("I am here 2")
             for i, batch in enumerate(loader_two_var_single_dataset):
-                    
+                print("I am here 3")
                 inputs,outputs,points,variables = batch
-
+                # print(inputs)
+                # print(outputs)
+                # print(points)
+                # print(variables)
+                # print(wow)
                 print('Test Case {}.'.format(i))
                 o.write('Test Case {}/{}.\n'.format(i,len(eval_single_text)-1))
 
@@ -1092,7 +1166,7 @@ else:
                 # TODO: let's enjoy GPU
 
                 print('Skeleton+LS:{}'.format(predicted))
-                
+                print(predicted)
                 single_dataset_functions_two_var.append(predicted)
                 Ys = [] #t['YT']
                 Yhats = []

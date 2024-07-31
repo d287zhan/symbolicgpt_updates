@@ -409,8 +409,11 @@ class CharDataset(Dataset):
         self.augment = augment
     
     def __len__(self):
-        return len(self.data)-1
-
+        if len(self.data) > 1:
+            return len(self.data)-1
+        else:
+            return len(self.data)
+        
     def __getitem__(self, idx):
         # grab an example from the data
         chunk = self.data[idx] # sequence of tokens including x, y, eq, etc.
