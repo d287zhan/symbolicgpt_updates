@@ -39,26 +39,26 @@ set_seed(42)
 # 2 var config for GAM-related stuff
 device='gpu'
 scratch=True # if you want to ignore the cache and start for scratch
-numEpochs = 20 # number of epochs to train the GPT+PT model
-embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
-numPoints=[200,201] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
-numVars=2 # the dimenstion of input points x, if you don't know then use the maximum
-numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
-blockSize = 64 # spatial extent of the model for its context
-testBlockSize = 400
-batchSize = 128 # batch size of training data
-target = 'Skeleton' #'Skeleton' #'EQ'
-const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
-decimals = 8 # decimals of the points only if target is Skeleton
-trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
-dataDir = './datasets/'
-dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
-titleTemplate = "{} equations of {} variables - Benchmark"
-target = 'Skeleton' #'Skeleton' #'EQ'
-dataFolder = '2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points'
-addr = './SavedModels/' # where to save model
-method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
-
+# numEpochs = 20 # number of epochs to train the GPT+PT model
+# embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
+# numPoints=[200,201] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+# numVars=2 # the dimenstion of input points x, if you don't know then use the maximum
+# numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
+# blockSize = 64 # spatial extent of the model for its context
+# testBlockSize = 400
+# batchSize = 128 # batch size of training data
+# target = 'Skeleton' #'Skeleton' #'EQ'
+# const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
+# decimals = 8 # decimals of the points only if target is Skeleton
+# trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
+# dataDir = './datasets/'
+# dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
+# titleTemplate = "{} equations of {} variables - Benchmark"
+# target = 'Skeleton' #'Skeleton' #'EQ'
+# dataFolder = '2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points'
+# addr = './SavedModels/' # where to save model
+# method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
+# gam_vars = 5
 # 9 var stuff
 # numEpochs = 20 # number of epochs to train the GPT+PT model
 # embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
@@ -81,6 +81,49 @@ method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to conca
 # method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation.
 # variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
 
+#3 var stuff
+# numEpochs = 20 # number of epochs to train the GPT+PT model
+# embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
+# numPoints=[500,501] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+# numVars=3 # the dimenstion of input points x, if you don't know then use the maximum
+# numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
+# blockSize = 64 # spatial extent of the model for its context
+# testBlockSize = 400
+# batchSize = 128 # batch size of training data
+# target = 'Skeleton' #'Skeleton' #'EQ'
+# const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
+# decimals = 8 # decimals of the points only if target is Skeleton
+# trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
+# dataDir = './datasets/'
+# dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
+# titleTemplate = "{} equations of {} variables - Benchmark"
+# target = 'Skeleton' #'Skeleton' #'EQ'
+# dataFolder = '3Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_500Points'
+# addr = './SavedModels/' # where to save model
+# method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation.
+# variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
+
+# 5 var stuff
+numEpochs = 20 # number of epochs to train the GPT+PT model
+embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
+numPoints=[10,200] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+numVars=5 # the dimenstion of input points x, if you don't know then use the maximum
+numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
+blockSize = 64 # spatial extent of the model for its context
+testBlockSize = 400
+batchSize = 128 # batch size of training data
+target = 'Skeleton' #'Skeleton' #'EQ'
+const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
+decimals = 8 # decimals of the points only if target is Skeleton
+trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
+dataDir = './datasets/'
+dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
+titleTemplate = "{} equations of {} variables - Benchmark"
+target = 'Skeleton' #'Skeleton' #'EQ'
+dataFolder = '1-5Var_RandSupport_RandLength_-3to3_-5.0to-3.0-3.0to5.0_10to200Points'
+addr = './SavedModels/' # where to save model
+method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
+variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
 
 # EMB_CAT: Concat point embedding to GPT token+pos embedding
 # EMB_SUM: Add point embedding to GPT tokens+pos embedding
@@ -124,9 +167,9 @@ fName = '{}_SymbolicGPT_{}_{}_{}_MINIMIZE.txt'.format(dataInfo,
                                              'GPT_PT_{}_{}'.format(method, target), 
                                              'Padding',
                                              variableEmbedding)
-perform_gam = True
-get_full_train = False
-get_full_val= False
+perform_gam = False
+get_full_train = True
+get_full_val= True
 get_full_test = False
 
 # We want to finetune the original numVars - 1 pretrained weights
@@ -156,7 +199,7 @@ if os.path.isfile(train_file) and not scratch:
 else:
     # process training files from scratch
     path = '{}/{}/Train/*.json'.format(dataDir, dataFolder)
-    eval_single_path = './datasets/2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points/Train/gam/single_eval1/nine_var/nine_var.json'
+    eval_single_path = './datasets/2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points/Train/gam/single_eval_5_var/five_var/five_var.json'
     fine_tune_path = './datasets/1Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_30Points/Train/0_1_0_14062021_193012_gaussian_noise.json'
     # eval_single_text = processDataFiles([eval_single_path])
     # eval_single_text = eval_single_text.split('\n')
@@ -219,8 +262,8 @@ else:
 
     if get_full_train and fine_tune:
         text = processDataFiles([fine_tune_path])
-        # chars = sorted(list(set(text))+['_','T','<','>',':'])
-        chars = ['\n', ' ', '"', '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', 'C', 'E', 'Q', 'S', 'X', 'Y', '[', ']', 'a', 'b', 'c', 'e', 'g', 'h', 'i', 'k', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'x', '{', '}']
+        chars = sorted(list(set(text))+['_','T','<','>',':'])
+        #chars = ['\n', ' ', '"', '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', 'C', 'E', 'Q', 'S', 'X', 'Y', '[', ']', 'a', 'b', 'c', 'e', 'g', 'h', 'i', 'k', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'x', '{', '}']
         text = text.split('\n')
         trainText_full = text[:-1] if len(text[-1]) == 0 else text
         random.shuffle(trainText_full) # shuffle the dataset, it's important specailly for the combined number of variables experiment
@@ -250,8 +293,10 @@ else:
 
 # load the val dataset
 path = '{}/{}/Val/*.json'.format(dataDir,dataFolder)
+print(path)
 if get_full_val:
     files = glob.glob(path)
+    print(files)
     textVal_full = processDataFiles([files[0]])
     textVal_full = textVal_full.split('\n') # convert the raw text to a set of examples
     val_dataset_full = CharDataset(textVal_full, blockSize, chars, numVars=numVars, 
@@ -315,7 +360,7 @@ if perform_gam:
     actual_functions_test = {}
 
     # Create the keys to keep track of functions
-    for i in range(9):
+    for i in range(gam_vars):
         additive_functions_tr[i] = {}
         additive_functions_test[i] = {}
         actual_functions_tr[i] = {}
@@ -325,7 +370,7 @@ if perform_gam:
     val_gam_path = '{}/{}/Val/gam/*.json'.format(dataDir, dataFolder)
     test_gam_path = '{}/{}/Test/gam/*.json'.format(dataDir, dataFolder)
     
-    single_eval_path = '{}/{}/Train/gam/single_eval1/*.json'.format(dataDir, dataFolder)
+    single_eval_path = '{}/{}/Train/gam/single_eval_5_var/*.json'.format(dataDir, dataFolder)
 
     val_files = glob.glob(val_gam_path)
     test_files = glob.glob(test_gam_path)
@@ -334,7 +379,7 @@ if perform_gam:
     single_residuals = {}
     single_dataset_functions =[]
     skeleton_predicted = []
-    for var_num in range(9):
+    for var_num in range(gam_vars):
         print(single_dataset_functions)
         # Keep track of residuals for each variable
         
@@ -371,7 +416,7 @@ if perform_gam:
             print(train_files2)
             # update with residuals
             #outpath = '{}/{}/Train/gam/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,numVars,var_num)
-            outpath_2 = '{}/{}/Train/gam/single_eval1/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,9,var_num)
+            outpath_2 = '{}/{}/Train/gam/single_eval_5_var/{}_vars_x_{}_dataset_copy.json'.format(dataDir, dataFolder,gam_vars,var_num)
             for file in train_files2:
                 read_json_lines_and_update_y(file, single_residuals[var_num-1], outpath_2)
             print("Done updating!")
@@ -1077,7 +1122,7 @@ else:
 
     #  load the best model
     #pre_trained_path = "./SavedModels//XYE_2Var_200-201Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
-    pre_trained_path = "./SavedModels//XYE_9Var_20-250Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
+    pre_trained_path = "./SavedModels//XYE_5Var_10-200Points_512EmbeddingSize_SymbolicGPT_GPT_PT_EMB_SUM_Skeleton_Padding_NOT_VAR_MINIMIZE.pt"
     print('The following model {} has been loaded!'.format(pre_trained_path))
     #print('The following model {} has been loaded!'.format(ckptPath))
     #model.load_state_dict(torch.load(ckptPath))
@@ -1090,7 +1135,7 @@ else:
                                     pin_memory=True,
                                     batch_size=1,
                                     num_workers=0)
-    
+ 
     from utils import *
     resultDict = {}
     try:
@@ -1140,7 +1185,7 @@ else:
                 predicted = predicted.strip('<').strip(">")
                 
                 print('Target:{}\nSkeleton:{}'.format(target, predicted))
-                
+                print(wow)
                 o.write('{}\n'.format(target))
                 o.write('{}:\n'.format('SymbolicGPT'))
                 o.write('{}\n'.format(predicted))
