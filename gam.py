@@ -187,4 +187,6 @@ def add_gaussian_noise(data_path, out_path):
 
                 json.dump(updated_data , output_file)
                 output_file.write('\n')
-                
+
+def compute_correlation(x, y):
+    return np.corrcoef(x, y)[0, 1]
