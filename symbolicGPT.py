@@ -39,26 +39,30 @@ set_seed(42)
 # 2 var config for GAM-related stuff
 device='gpu'
 scratch=True # if you want to ignore the cache and start for scratch
-# numEpochs = 20 # number of epochs to train the GPT+PT model
-# embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
-# numPoints=[200,201] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
-# numVars=2 # the dimenstion of input points x, if you don't know then use the maximum
-# numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
-# blockSize = 64 # spatial extent of the model for its context
-# testBlockSize = 400
-# batchSize = 128 # batch size of training data
-# target = 'Skeleton' #'Skeleton' #'EQ'
-# const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
-# decimals = 8 # decimals of the points only if target is Skeleton
-# trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
-# dataDir = './datasets/'
-# dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
-# titleTemplate = "{} equations of {} variables - Benchmark"
-# target = 'Skeleton' #'Skeleton' #'EQ'
-# dataFolder = '2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points'
-# addr = './SavedModels/' # where to save model
-# method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
-# gam_vars = 5
+numEpochs = 20 # number of epochs to train the GPT+PT model
+embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
+numPoints=[200,201] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+numVars=2 # the dimenstion of input points x, if you don't know then use the maximum
+numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
+blockSize = 64 # spatial extent of the model for its context
+testBlockSize = 400
+batchSize = 128 # batch size of training data
+target = 'Skeleton' #'Skeleton' #'EQ'
+const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
+decimals = 8 # decimals of the points only if target is Skeleton
+trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
+dataDir = './datasets/'
+dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
+titleTemplate = "{} equations of {} variables - Benchmark"
+target = 'Skeleton' #'Skeleton' #'EQ'
+dataFolder = '2Var_RandSupport_FixedLength_-3to3_-5.0to-3.0-3.0to5.0_200Points'
+addr = './SavedModels/' # where to save model
+method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
+gam_vars = 3
+
+correlation = True
+hsic = False
+
 # 9 var stuff
 # numEpochs = 20 # number of epochs to train the GPT+PT model
 # embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
@@ -104,26 +108,26 @@ scratch=True # if you want to ignore the cache and start for scratch
 # variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
 
 # 5 var stuff
-numEpochs = 20 # number of epochs to train the GPT+PT model
-embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
-numPoints=[10,200] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
-numVars=5 # the dimenstion of input points x, if you don't know then use the maximum
-numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
-blockSize = 64 # spatial extent of the model for its context
-testBlockSize = 400
-batchSize = 128 # batch size of training data
-target = 'Skeleton' #'Skeleton' #'EQ'
-const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
-decimals = 8 # decimals of the points only if target is Skeleton
-trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
-dataDir = './datasets/'
-dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
-titleTemplate = "{} equations of {} variables - Benchmark"
-target = 'Skeleton' #'Skeleton' #'EQ'
-dataFolder = '1-5Var_RandSupport_RandLength_-3to3_-5.0to-3.0-3.0to5.0_10to200Points'
-addr = './SavedModels/' # where to save model
-method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
-variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
+# numEpochs = 20 # number of epochs to train the GPT+PT model
+# embeddingSize = 512 # the hidden dimension of the representation of both GPT and PT
+# numPoints=[10,200] # number of points that we are going to receive to make a prediction about f given x and y, if you don't know then use the maximum
+# numVars=5 # the dimenstion of input points x, if you don't know then use the maximum
+# numYs=1 # the dimension of output points y = f(x), if you don't know then use the maximum
+# blockSize = 64 # spatial extent of the model for its context
+# testBlockSize = 400
+# batchSize = 128 # batch size of training data
+# target = 'Skeleton' #'Skeleton' #'EQ'
+# const_range = [-2.1, 2.1] # constant range to generate during training only if target is Skeleton
+# decimals = 8 # decimals of the points only if target is Skeleton
+# trainRange = [-3.0,3.0] # support range to generate during training only if target is Skeleton
+# dataDir = './datasets/'
+# dataInfo = 'XYE_{}Var_{}Points_{}EmbeddingSize'.format(numVars, numPoints, embeddingSize)
+# titleTemplate = "{} equations of {} variables - Benchmark"
+# target = 'Skeleton' #'Skeleton' #'EQ'
+# dataFolder = '1-5Var_RandSupport_RandLength_-3to3_-5.0to-3.0-3.0to5.0_10to200Points'
+# addr = './SavedModels/' # where to save model
+# method = 'EMB_SUM' # EMB_CAT/EMB_SUM/OUT_SUM/OUT_CAT/EMB_CON -> whether to concat the embedding or use summation. 
+# variableEmbedding = 'NOT_VAR' # NOT_VAR/LEA_EMB/STR_VAR
 
 # EMB_CAT: Concat point embedding to GPT token+pos embedding
 # EMB_SUM: Add point embedding to GPT tokens+pos embedding
@@ -370,7 +374,7 @@ if perform_gam:
     val_gam_path = '{}/{}/Val/gam/*.json'.format(dataDir, dataFolder)
     test_gam_path = '{}/{}/Test/gam/*.json'.format(dataDir, dataFolder)
     
-    single_eval_path = '{}/{}/Train/gam/single_eval_5_var/*.json'.format(dataDir, dataFolder)
+    single_eval_path = '{}/{}/Train/gam/single_eval_{}_var/*.json'.format(dataDir, dataFolder, gam_vars)
 
     val_files = glob.glob(val_gam_path)
     test_files = glob.glob(test_gam_path)
@@ -379,8 +383,19 @@ if perform_gam:
     single_residuals = {}
     single_dataset_functions =[]
     skeleton_predicted = []
-    for var_num in range(gam_vars):
-        print(single_dataset_functions)
+
+    if correlation:
+        if gam_vars == 2:
+            order = [1,2]
+        elif gam_vars == 3:
+            order = [2,1,3]
+        elif gam_vars == 5:
+            order = [5,2,4,3,1]
+        elif gam_vars == 9:
+            order = [6,4,8,5,9,1,7,2,3]
+
+
+    for idx, var_num in enumerate(order):
         # Keep track of residuals for each variable
         
         # Keep track of the number of residuals we have
@@ -393,7 +408,7 @@ if perform_gam:
         # Create the Torch CharDataset
         # If not x_1 then update the next dataset with y = residuals
         print(f"Training on x_{var_num}")
-        if var_num == 0:
+        if idx == 0:
             print(f"Reading from {train_gam_path}")
             train_files = [glob.glob(train_gam_path)[var_num]]
             train_files2 = [glob.glob(single_eval_path)[var_num]]
@@ -1185,7 +1200,6 @@ else:
                 predicted = predicted.strip('<').strip(">")
                 
                 print('Target:{}\nSkeleton:{}'.format(target, predicted))
-                print(wow)
                 o.write('{}\n'.format(target))
                 o.write('{}:\n'.format('SymbolicGPT'))
                 o.write('{}\n'.format(predicted))
