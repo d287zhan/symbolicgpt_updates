@@ -3,6 +3,8 @@ import json
 import os
 import numpy as np
 import pickle
+from scipy.spatial.distance import pdist, squareform
+from scipy.linalg import eigh
 from utils import *
 
 def read_json_lines_and_write(file_path, out_path, var_num, is_train):
@@ -190,3 +192,26 @@ def add_gaussian_noise(data_path, out_path):
 
 def compute_correlation(x, y):
     return np.corrcoef(x, y)[0, 1]
+
+def rbf_kernel(X, sigma=None):
+    """
+    Computes the RBF (Gaussian) kernel matrix.
+    """
+    pairwise_dists = squareform(pdist(X, 'euclidean')) ** 2
+    if sigma is None:
+        sigma = np.median(pairwise_dists)
+    K = np.exp(-pairwise_dists / (2 * sigma ** 2))
+    return K
+
+def hsic(X, Y, sigma_X=None, sigma_Y=None):
+    """
+    Computes the HSIC between two datasets X and Y.
+    """
+    n = X.shape[0]
+    H = np.eye(n) - np.ones((n, n)) / n
+
+    K_X = rbf_kernel(X, sigma_X)
+    K_Y = rbf_kernel(Y, sigma_Y)
+
+    HSIC_value = np.trace(K_X @ H @ K_Y @ H) / (n - 1) ** 2
+    return HSIC_value
