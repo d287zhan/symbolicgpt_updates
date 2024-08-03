@@ -191,6 +191,9 @@ def add_gaussian_noise(data_path, out_path):
                 output_file.write('\n')
 
 def compute_correlation(x, y):
+    """
+    Computes Correlation between two vectors
+    """
     return np.corrcoef(x, y)[0, 1]
 
 def rbf_kernel(X, sigma=None):
